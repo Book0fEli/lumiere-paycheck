@@ -25,6 +25,7 @@ Lumière PayCheck answers those questions. It monitors every endpoint listed in 
 - **Monitors ~17,000 x402 endpoints** from the Bazaar, every 30 minutes: price quote, payout wallet, uptime, response time.
 - **Flags hijack risk.** If an endpoint's payout wallet changes unexpectedly, its score is capped and agents are told to avoid it.
 - **Spending rules for agents.** Before paying, an agent asks "may I pay *this* endpoint *this* amount to *this* wallet?" and gets allow or deny with reasons.
+- **Plans for teams (new).** Scoped agent keys, daily/monthly spend limits, signed receipts your wallet verifies before paying, a replayable audit trail, and human review for anomalies. [Details](docs/subscriptions.md).
 - **Alerts.** Watch an endpoint and get signed webhook alerts when it breaks, changes wallet, or raises its price.
 - **Paid delivery checks** (rolling out): small real payments that confirm an endpoint returns what it advertises.
 
@@ -66,7 +67,7 @@ if (!decision.allow) throw new Error(`Not paying ${target}: ${decision.reasons.j
 // ...then pay with your x402 client as usual
 ```
 
-More in [`examples/`](examples): TypeScript, Python, curl, and webhook signature verification.
+More in [`examples/`](examples): TypeScript, Python, curl, webhook and receipt verification, a guarded payer, and plan purchase.
 
 <p align="center">
   <img src="assets/2-for-agent-builders.png" alt="For agent builders section" width="820">
@@ -87,8 +88,30 @@ More in [`examples/`](examples): TypeScript, Python, curl, and webhook signature
 | `GET /v1/report?url=` | $0.005 | Full report: score breakdown, current quote, wallet and price history |
 | `POST /v1/score/batch` | $0.01 | Score up to 100 endpoints in one call |
 | `POST /v1/watch` | $0.10 | 30 days of signed webhook alerts for one endpoint |
+| `GET /v1/failures?url=` | Free | Every failed check in the last 7 days, and whether it counts |
+| `GET /v1/monitor` | Free | Monitor health: what the last cycle saw, including which hosts blocked us |
+| `GET /v1/plans` | Free | Plan catalog |
+| `POST /v1/plans/builder` · `/business` | $9 · $49 | Buy, renew, or upgrade a plan |
+| `POST /v1/authorize` | Plan | Authorize a payment with an agent key: allow / deny / review + signed receipt |
 
 Free routes allow 60 requests per minute per client. Paid routes use x402 on **Base mainnet** (USDC). Lookups for endpoints we don't monitor return 404 and are **never charged**. Full reference: [`docs/api.md`](docs/api.md).
+
+## Plans for teams running agents
+
+Free checks stay free. Plans add **authorization** for agents that spend money:
+
+| | Builder | Business | Enterprise |
+|---|---|---|---|
+| Price | **$9 / 30 days** | **$49 / 30 days** | Custom |
+| Scoped agent keys (allowed sellers, per-payment cap, expiry, revoke, rotate) | 3 | 25 | Custom |
+| Daily & monthly spend limits | ✅ | ✅ | ✅ |
+| Signed receipts for enforcement at the tool boundary | ✅ | ✅ | ✅ |
+| Replayable audit trail | 30 days | 1 year + CSV | Custom |
+| Human review for anomalies (new wallets, large amounts) | — | ✅ | ✅ |
+
+Prepaid and paid with x402; no auto-renewal. The agent calls `POST /v1/authorize` before every payment and gets **allow**, **deny**, or **review**, with reasons. On allow it gets an Ed25519-signed receipt bound to that exact payment, and [`examples/guarded-pay.ts`](examples/guarded-pay.ts) shows a payer that refuses to sign without one. Every decision can be replayed later to prove why it was made.
+
+**Full guide:** [docs/subscriptions.md](docs/subscriptions.md) · **Buy:** [`examples/subscribe.ts`](examples/subscribe.ts)
 
 ## Verdicts
 
@@ -115,7 +138,7 @@ Deterministic and public. **No one can pay for a better grade.**
 - Not yet paid-tested → scored on the other 80 points, rescaled, and labeled so
 - **Caps:** unexplained wallet change → max 40; failed paid delivery → max 50
 - A failed payment caused on our side never counts against a seller
-- **Fair to sellers:** checks where our monitor is rate-limited or bot-challenged (e.g. by Cloudflare) are logged as `blocked` and never count against uptime; dropped connections are retried once; we never send more than 2 requests at a time to one host
+- **Fair to sellers:** only real problems count. Checks where our monitor is rate-limited or blocked by a firewall (Cloudflare, Vercel, AWS WAF, Akamai, DataDome, Imperva, Sucuri) are `blocked`; requests the endpoint rejects before quoting (400/405/415/422) are `mismatch`; failures caused by our own network are `monitor_error`. None of these count. Network errors and 502/503/504 are retried once. We send at most 2 requests at a time and about 1 per second to any one host, and pause a host that asks us to slow down
 - **Transparent:** every failed check is listed on the endpoint's public page and at `/v1/failures`, with timestamps. Our user agent is `lumiere-paycheck-prober/1.0 (+https://lumierepaycheck.org)` if you want to allowlist it
 
 ## Pricing

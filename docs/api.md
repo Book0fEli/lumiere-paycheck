@@ -64,7 +64,20 @@ Every check in the last 7 days that didn't return a valid payment quote.
   "failures": [ { "at": "2026-09-26T15:46:40Z", "status": "blocked", "httpStatus": 429, "detail": "rate limited (HTTP 429)", "counts": false } ] }
 ```
 
-`status` is `unreachable` (timeout or connection error, after one retry), `not_x402` (no payment quote), `invalid_402` (malformed quote), or `blocked` (we were rate-limited or bot-challenged; never counts against uptime).
+`status` values:
+
+| Status | Meaning | Counts against uptime? |
+|---|---|---|
+| `unreachable` | Timeout or connection error, after one retry | Yes |
+| `not_x402` | Answered, but not with a payment quote (e.g. 404) | Yes |
+| `invalid_402` | Asked for payment, but the quote couldn't be read | Yes |
+| `blocked` | Our monitor was rate-limited (429) or blocked by a firewall/bot challenge | No |
+| `mismatch` | The endpoint rejected our request shape (400/405/406/411/415/422) before quoting | No |
+| `monitor_error` | Our own network had a problem during that cycle | No |
+
+## `GET /v1/monitor` · free
+
+Monitor health: politeness settings, which statuses never count, and status counts from the last cycle, including which hosts blocked the monitor.
 
 ## `GET /v1/leaderboard?limit=25` · free
 
@@ -114,6 +127,26 @@ The webhook must be `https` and publicly reachable. **Response** (`201`):
 Event kinds: `went_down`, `recovered`, `challenge_broke`, `wallet_changed`, `unauthorized_wallet`, `price_changed` (increases), `network_changed`, `delivery_failed`, `delivery_recovered`. A `watch.created` test alert is sent when the watch is created.
 
 **Verify every alert.** Header `x-paycheck-signature: sha256=<hex>`, where `<hex>` = HMAC-SHA256 of the raw request body, keyed with `sha256(token)` as a lowercase hex string. See [`examples/verify-webhook.ts`](../examples/verify-webhook.ts) and [`examples/verify_webhook.py`](../examples/verify_webhook.py).
+
+## Subscriptions
+
+Plan purchase, agent keys, authorization, receipts, reviews, and audit are documented in **[subscriptions.md](subscriptions.md)**.
+
+| Route | Auth | Purpose |
+|---|---|---|
+| `GET /v1/plans` | none | Plan catalog |
+| `POST /v1/plans/builder`, `/business` | x402 payment (+ owner key to renew/upgrade) | Buy, renew, or upgrade |
+| `GET`, `PATCH /v1/workspace` | owner key | Plan status; set `reviewWebhook` |
+| `POST`, `GET /v1/agents` · `GET`, `PATCH`, `DELETE /v1/agents/:id` · `POST /v1/agents/:id/rotate` | owner key | Manage scoped agent keys |
+| `POST /v1/authorize` | agent key | Allow / deny / review a payment; receipt on allow |
+| `GET /v1/decisions` · `GET /v1/decisions/:id` | owner key (agents can read their own decision) | Audit log, full decision context |
+| `POST /v1/decisions/:id/replay` | owner key | Re-run a stored decision; confirms `matches: true` |
+| `GET /v1/audit.csv` | owner key (Business+) | CSV export |
+| `GET /v1/reviews` · `POST /v1/reviews/:id/approve`, `/deny` | owner key (Business+) | Human review queue |
+| `GET /.well-known/paycheck-receipt-key.json` | none | Ed25519 public key (JWK) for offline receipt verification |
+| `POST /v1/receipts/verify` | none | Verify a receipt online |
+
+Keys go in `Authorization: Bearer <key>`. Owner keys start with `pc_owner_`, agent keys with `pc_agent_`.
 
 ## MCP
 

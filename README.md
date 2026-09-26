@@ -1,4 +1,8 @@
 <p align="center">
+  <img src="assets/logo.png" alt="Lumière PayCheck: check an x402 endpoint before you pay it" width="620">
+</p>
+
+<p align="center">
   <img src="assets/1-homepage.png" alt="Lumière PayCheck homepage" width="820">
 </p>
 

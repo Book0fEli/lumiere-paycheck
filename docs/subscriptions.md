@@ -14,15 +14,26 @@ and (on allow) a **signed receipt** your wallet can verify before sending money.
 | Replayable audit trail | 30 days | 1 year + CSV export | Custom |
 | Human review for anomalies + signed webhook | — | ✅ | ✅ |
 
-Plans are **prepaid** and paid in USDC with [x402](https://x402.org) on Base.
-They **don't renew automatically**: buy again to extend, or buy Business to upgrade
-(remaining time carries over). Requests that fail validation are never charged.
+**Two ways to pay:**
+
+| | Card (most people) | USDC via x402 (developers) |
+|---|---|---|
+| Where | [lumierepaycheck.org/subscribe](https://lumierepaycheck.org/subscribe) | `POST /v1/plans/builder` or `/business` |
+| Billing | Monthly, renews automatically (Stripe) | Prepaid 30 days, no auto-renewal |
+| Cancel / change | Billing portal on your [account page](https://lumierepaycheck.org/account) | Buy again to extend or upgrade |
+
+Requests that fail validation are never charged.
 
 ---
 
-## 1. Buy a plan
+## 1. Subscribe
 
-`POST https://lumierepaycheck.org/v1/plans/builder` (or `/business`), paid with any x402 client.
+**With a card:** go to [lumierepaycheck.org/subscribe](https://lumierepaycheck.org/subscribe), pick a plan, and pay on Stripe's
+secure checkout. You'll come back to a page showing your **owner key once**. Your account
+is created automatically and renews every month. If a renewal fails, Stripe retries;
+if you cancel, access continues to the end of the month you paid for.
+
+**With USDC:** `POST https://lumierepaycheck.org/v1/plans/builder` (or `/business`), paid with any x402 client.
 See [`examples/subscribe.ts`](../examples/subscribe.ts).
 
 ```json
@@ -34,6 +45,12 @@ See [`examples/subscribe.ts`](../examples/subscribe.ts).
 - **Renew or upgrade:** call the same route with `Authorization: Bearer <owner key>`.
 
 ## 2. Create an agent key
+
+**Easiest:** open your [account page](https://lumierepaycheck.org/account), paste your owner key, and fill in the
+"Create an agent key" form (limits in dollars). The page also lets you replace or revoke keys,
+approve payments waiting for review, see every decision, download a CSV, and manage billing.
+
+**Or with the API:**
 
 ```bash
 curl -X POST https://lumierepaycheck.org/v1/agents \
@@ -127,10 +144,11 @@ and no receipt.
 
 Decisions are kept for your plan's retention period (30 days Builder, 1 year Business).
 
-## Workspace
+## Workspace and billing
 
-- `GET /v1/workspace`: plan, expiry, limits, agent count
+- `GET /v1/workspace`: plan, expiry, limits, agent count, and how it's paid (`payMethod`: `card` or `x402`)
 - `PATCH /v1/workspace`: set or clear `reviewWebhook`
+- `POST /billing/portal` (owner key, card plans): returns a Stripe billing-portal link to update your card, switch plans, see invoices, or cancel
 
 ## Security notes
 

@@ -135,7 +135,8 @@ Plan purchase, agent keys, authorization, receipts, reviews, and audit are docum
 | Route | Auth | Purpose |
 |---|---|---|
 | `GET /v1/plans` | none | Plan catalog |
-| `POST /v1/plans/builder`, `/business` | x402 payment (+ owner key to renew/upgrade) | Buy, renew, or upgrade |
+| `POST /v1/plans/builder`, `/business` | x402 payment (+ owner key to renew/upgrade) | Buy, renew, or upgrade with USDC. Card subscriptions: [/subscribe](https://lumierepaycheck.org/subscribe) |
+| `POST /billing/portal` | owner key (card plans) | Stripe billing-portal link: card, plan changes, invoices, cancel |
 | `GET`, `PATCH /v1/workspace` | owner key | Plan status; set `reviewWebhook` |
 | `POST`, `GET /v1/agents` · `GET`, `PATCH`, `DELETE /v1/agents/:id` · `POST /v1/agents/:id/rotate` | owner key | Manage scoped agent keys |
 | `POST /v1/authorize` | agent key | Allow / deny / review a payment; receipt on allow |

@@ -91,7 +91,7 @@ More in [`examples/`](examples): TypeScript, Python, curl, webhook and receipt v
 | `GET /v1/failures?url=` | Free | Every failed check in the last 7 days, and whether it counts |
 | `GET /v1/monitor` | Free | Monitor health: what the last cycle saw, including which hosts blocked us |
 | `GET /v1/plans` | Free | Plan catalog |
-| `POST /v1/plans/builder` · `/business` | $9 · $49 | Buy, renew, or upgrade a plan |
+| `POST /v1/plans/builder` · `/business` | $9 · $49 | Buy, renew, or upgrade a plan with USDC (x402). Card: [/subscribe](https://lumierepaycheck.org/subscribe) |
 | `POST /v1/authorize` | Plan | Authorize a payment with an agent key: allow / deny / review + signed receipt |
 
 Free routes allow 60 requests per minute per client. Paid routes use x402 on **Base mainnet** (USDC). Lookups for endpoints we don't monitor return 404 and are **never charged**. Full reference: [`docs/api.md`](docs/api.md).
@@ -109,9 +109,11 @@ Free checks stay free. Plans add **authorization** for agents that spend money:
 | Replayable audit trail | 30 days | 1 year + CSV | Custom |
 | Human review for anomalies (new wallets, large amounts) | — | ✅ | ✅ |
 
-Prepaid and paid with x402; no auto-renewal. The agent calls `POST /v1/authorize` before every payment and gets **allow**, **deny**, or **review**, with reasons. On allow it gets an Ed25519-signed receipt bound to that exact payment, and [`examples/guarded-pay.ts`](examples/guarded-pay.ts) shows a payer that refuses to sign without one. Every decision can be replayed later to prove why it was made.
+**Subscribe on the website with a card** at [lumierepaycheck.org/subscribe](https://lumierepaycheck.org/subscribe): billed monthly by Stripe, cancel anytime, and your account is set up automatically. Then manage everything (agent keys, limits, approvals, billing) at [lumierepaycheck.org/account](https://lumierepaycheck.org/account). Developers can also pay with USDC via x402 (prepaid 30 days, no auto-renewal).
 
-**Full guide:** [docs/subscriptions.md](docs/subscriptions.md) · **Buy:** [`examples/subscribe.ts`](examples/subscribe.ts)
+The agent calls `POST /v1/authorize` before every payment and gets **allow**, **deny**, or **review**, with reasons. On allow it gets an Ed25519-signed receipt bound to that exact payment, and [`examples/guarded-pay.ts`](examples/guarded-pay.ts) shows a payer that refuses to sign without one. Every decision can be replayed later to prove why it was made.
+
+**Full guide:** [docs/subscriptions.md](docs/subscriptions.md) · **Subscribe:** [lumierepaycheck.org/subscribe](https://lumierepaycheck.org/subscribe) · **Pay with USDC:** [`examples/subscribe.ts`](examples/subscribe.ts)
 
 ## Verdicts
 

@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
+  - name: Enterprise and custom setups (private)
+    url: https://lumierepaycheck.org/enterprise
+    about: Tell us about your organization's needs privately. GitHub issues are public, so please don't post company details here.
   - name: Report a security vulnerability
     url: https://github.com/Book0fEli/lumiere-paycheck/security/advisories/new
     about: Please report security issues privately here, not in a public issue.

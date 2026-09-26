@@ -102,7 +102,7 @@ Free checks stay free. Plans add **authorization** for agents that spend money:
 
 | | Builder | Business | Enterprise |
 |---|---|---|---|
-| Price | **$9 / 30 days** | **$49 / 30 days** | Custom |
+| Price | **$9 / month** | **$49 / month** | [Talk to us privately](https://lumierepaycheck.org/enterprise) |
 | Scoped agent keys (allowed sellers, per-payment cap, expiry, revoke, rotate) | 3 | 25 | Custom |
 | Daily & monthly spend limits | ✅ | ✅ | ✅ |
 | Signed receipts for enforcement at the tool boundary | ✅ | ✅ | ✅ |

@@ -7,7 +7,7 @@ and (on allow) a **signed receipt** your wallet can verify before sending money.
 
 | | Builder | Business | Enterprise |
 |---|---|---|---|
-| Price | $9 / 30 days | $49 / 30 days | Custom |
+| Price | $9 / month | $49 / month | Custom: [private inquiry form](https://lumierepaycheck.org/enterprise) |
 | Agent keys | 3 | 25 | Custom |
 | Allowed sellers, per-payment cap, daily & monthly limits, expiry, revoke, rotate | ✅ | ✅ | ✅ |
 | Signed receipts (Ed25519) | ✅ | ✅ | ✅ |

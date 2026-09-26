@@ -14,6 +14,10 @@ and (on allow) a **signed receipt** your wallet can verify before sending money.
 | Replayable audit trail | 30 days | 1 year + CSV export | Custom |
 | Human review for anomalies + signed webhook | — | ✅ | ✅ |
 
+<p align="center">
+  <img src="../assets/5-subscribe.png" alt="Subscribe page" width="760">
+</p>
+
 **Two ways to pay:**
 
 | | Card (most people) | USDC via x402 (developers) |
@@ -149,6 +153,12 @@ Decisions are kept for your plan's retention period (30 days Builder, 1 year Bus
 - `GET /v1/workspace`: plan, expiry, limits, agent count, and how it's paid (`payMethod`: `card` or `x402`)
 - `PATCH /v1/workspace`: set or clear `reviewWebhook`
 - `POST /billing/portal` (owner key, card plans): returns a Stripe billing-portal link to update your card, switch plans, see invoices, or cancel
+
+## Common questions
+
+<p align="center">
+  <img src="../assets/6-questions.png" alt="Questions: cancel anytime, failed payments, upgrades, no crypto needed" width="760">
+</p>
 
 ## Security notes
 

@@ -109,6 +109,10 @@ Free checks stay free. Plans add **authorization** for agents that spend money:
 | Replayable audit trail | 30 days | 1 year + CSV | Custom |
 | Human review for anomalies (new wallets, large amounts) | — | ✅ | ✅ |
 
+<p align="center">
+  <img src="assets/5-subscribe.png" alt="Subscribe page: Builder $9/month, Business $49/month, Enterprise custom" width="820">
+</p>
+
 **Subscribe on the website with a card** at [lumierepaycheck.org/subscribe](https://lumierepaycheck.org/subscribe): billed monthly by Stripe, cancel anytime, and your account is set up automatically. Then manage everything (agent keys, limits, approvals, billing) at [lumierepaycheck.org/account](https://lumierepaycheck.org/account). Developers can also pay with USDC via x402 (prepaid 30 days, no auto-renewal).
 
 The agent calls `POST /v1/authorize` before every payment and gets **allow**, **deny**, or **review**, with reasons. On allow it gets an Ed25519-signed receipt bound to that exact payment, and [`examples/guarded-pay.ts`](examples/guarded-pay.ts) shows a payer that refuses to sign without one. Every decision can be replayed later to prove why it was made.

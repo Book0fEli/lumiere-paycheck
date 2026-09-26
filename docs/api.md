@@ -74,6 +74,7 @@ Every check in the last 7 days that didn't return a valid payment quote.
 | `blocked` | Our monitor was rate-limited (429) or blocked by a firewall/bot challenge | No |
 | `mismatch` | The endpoint rejected our request shape (400/405/406/411/415/422) before quoting | No |
 | `monitor_error` | Our own network had a problem during that cycle | No |
+| `unsupported_network` | The quote is for a payment network we can't read yet (e.g. `nano:mainnet`) | No |
 
 ## `GET /v1/monitor` · free
 

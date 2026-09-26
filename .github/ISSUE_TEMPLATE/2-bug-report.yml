@@ -1,0 +1,47 @@
+name: Bug report
+description: Something on the site, API, MCP server, or account page isn't working
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Never paste owner keys, agent keys, private keys, or receipts here.** This issue is public.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where did it happen?
+      options:
+        - Website pages
+        - Account page
+        - Card checkout / billing
+        - API (/v1/...)
+        - MCP server
+        - Example code in this repo
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to ...
+        2. Click ...
+        3. See error ...
+  - type: input
+    id: ids
+    attributes:
+      label: Decision or workspace ID (optional)
+      description: IDs like dec_... or ws_... are fine to share. Keys are not.

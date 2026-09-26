@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/Book0fEli/lumiere-paycheck/security/advisories/new
+    about: Please report security issues privately here, not in a public issue.
+  - name: Billing or account help (card subscriptions)
+    url: https://lumierepaycheck.org/account
+    about: Manage your plan, update your card, or cancel from your account page ("Manage billing").
+  - name: Check an endpoint's grade
+    url: https://lumierepaycheck.org
+    about: Look up any x402 endpoint's score, verdict, and failed-check log.

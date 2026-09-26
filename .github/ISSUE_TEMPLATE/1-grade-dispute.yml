@@ -1,0 +1,48 @@
+name: Grade dispute
+description: An endpoint's grade, uptime, or verdict looks wrong
+title: "Grade dispute: <endpoint>"
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for checking. Before filing, open the endpoint's page (lumierepaycheck.org/e?url=...) and look at
+        **Recent failed checks**: it lists every failed check with a UTC timestamp and whether it counts.
+        Checks where our monitor was rate-limited, blocked by a firewall, or hit a network we don't support never count.
+  - type: input
+    id: endpoint
+    attributes:
+      label: Endpoint URL
+      description: The full x402 endpoint, including the path.
+      placeholder: https://api.example.com/v1/data
+    validations:
+      required: true
+  - type: dropdown
+    id: relationship
+    attributes:
+      label: Your relationship to this endpoint
+      options:
+        - I operate it
+        - I use it (as a buyer or agent builder)
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What looks wrong?
+      description: For example, "uptime shows 89% but our logs show no downtime."
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Timestamps or evidence (optional)
+      description: UTC times of the failed checks you're questioning, or what your own logs show at those times.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I looked at the endpoint's "Recent failed checks" section.
+          required: true

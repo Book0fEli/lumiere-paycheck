@@ -144,7 +144,7 @@ Deterministic and public. **No one can pay for a better grade.**
 - Not yet paid-tested → scored on the other 80 points, rescaled, and labeled so
 - **Caps:** unexplained wallet change → max 40; failed paid delivery → max 50
 - A failed payment caused on our side never counts against a seller
-- **Fair to sellers:** only real problems count. Checks where our monitor is rate-limited or blocked by a firewall (Cloudflare, Vercel, AWS WAF, Akamai, DataDome, Imperva, Sucuri) are `blocked`; requests the endpoint rejects before quoting (400/405/415/422) are `mismatch`; failures caused by our own network are `monitor_error`. None of these count. Network errors and 502/503/504 are retried once. We send at most 2 requests at a time and about 1 per second to any one host, and pause a host that asks us to slow down
+- **Fair to sellers:** only real problems count. Checks where our monitor is rate-limited or blocked by a firewall (Cloudflare, Vercel, AWS WAF, Akamai, DataDome, Imperva, Sucuri) are `blocked`; requests the endpoint rejects before quoting (400/405/415/422) are `mismatch`; failures caused by our own network are `monitor_error`. Quotes on payment networks we can't read yet (e.g. `nano:mainnet`) are `unsupported_network`. None of these count. Network errors and 502/503/504 are retried once. We send at most 2 requests at a time and about 1 per second to any one host, and pause a host that asks us to slow down
 - **Transparent:** every failed check is listed on the endpoint's public page and at `/v1/failures`, with timestamps. Our user agent is `lumiere-paycheck-prober/1.0 (+https://lumierepaycheck.org)` if you want to allowlist it
 
 ## Pricing
@@ -169,7 +169,7 @@ Lumière PayCheck is an independent project operated by **Lumière LLC** (Connec
 
 ## Feedback
 
-Questions, feature requests, and grade disputes: [open an issue](../../issues). Building an agent that pays with x402? I'd love to hear what it needs.
+Questions, feature requests, and grade disputes: [open an issue](../../issues/new/choose) and pick the matching form. Building an agent that pays with x402? I'd love to hear what it needs.
 
 ## License
 

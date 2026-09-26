@@ -1,0 +1,37 @@
+name: Feature request
+description: Suggest something that would make Lumière PayCheck more useful
+labels: ["enhancement"]
+body:
+  - type: dropdown
+    id: who
+    attributes:
+      label: Who are you?
+      options:
+        - I build agents that pay with x402
+        - I sell an x402 endpoint
+        - I'm evaluating Lumière PayCheck
+        - I'm an automated agent
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: using
+    attributes:
+      label: Do you use Lumière PayCheck today?
+      options:
+        - Yes, on a paid plan
+        - Yes, the free API or MCP server
+        - Not yet
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the situation, not just the feature.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would help?

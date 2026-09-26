@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/homepage.png" alt="Lumière PayCheck homepage" width="820">
+  <img src="assets/1-homepage.png" alt="Lumière PayCheck homepage" width="820">
 </p>
 
 # Lumière PayCheck
@@ -65,7 +65,7 @@ if (!decision.allow) throw new Error(`Not paying ${target}: ${decision.reasons.j
 More in [`examples/`](examples): TypeScript, Python, curl, and webhook signature verification.
 
 <p align="center">
-  <img src="assets/for-agent-builders.png" alt="For agent builders section" width="820">
+  <img src="assets/2-for-agent-builders.png" alt="For agent builders section" width="820">
 </p>
 
 ## API
@@ -77,7 +77,8 @@ More in [`examples/`](examples): TypeScript, Python, curl, and webhook signature
 | `GET /v1/leaderboard?limit=` | Free | Top-rated endpoints (no wallet incidents) |
 | `GET /v1/stats` | Free | Catalog size and verdict counts |
 | `GET /v1/operators?limit=` | Free | Sellers grouped by domain |
-| `GET /e?url=` | Free | Public page for one endpoint |
+| `GET /v1/failures?url=` | Free | Every failed check in the last 7 days: time, result, HTTP status, and whether it counts |
+| `GET /e?url=` | Free | Public page for one endpoint, including its failed-check log |
 | `GET /badge?url=` | Free | Embeddable SVG badge |
 | `GET /v1/report?url=` | $0.005 | Full report: score breakdown, current quote, wallet and price history |
 | `POST /v1/score/batch` | $0.01 | Score up to 100 endpoints in one call |
@@ -98,7 +99,7 @@ Free routes allow 60 requests per minute per client. Paid routes use x402 on **B
 ## How a score is made
 
 <p align="center">
-  <img src="assets/how-it-works.png" alt="How it works and scoring formula" width="820">
+  <img src="assets/3-how-it-works.png" alt="How it works and scoring formula" width="820">
 </p>
 
 Deterministic and public. **No one can pay for a better grade.**
@@ -110,11 +111,13 @@ Deterministic and public. **No one can pay for a better grade.**
 - Not yet paid-tested → scored on the other 80 points, rescaled, and labeled so
 - **Caps:** unexplained wallet change → max 40; failed paid delivery → max 50
 - A failed payment caused on our side never counts against a seller
+- **Fair to sellers:** checks where our monitor is rate-limited or bot-challenged (e.g. by Cloudflare) are logged as `blocked` and never count against uptime; dropped connections are retried once; we never send more than 2 requests at a time to one host
+- **Transparent:** every failed check is listed on the endpoint's public page and at `/v1/failures`, with timestamps. Our user agent is `lumiere-paycheck-prober/1.0 (+https://lumierepaycheck.org)` if you want to allowlist it
 
 ## Pricing
 
 <p align="center">
-  <img src="assets/pricing.png" alt="Pricing" width="820">
+  <img src="assets/4-pricing.png" alt="Pricing" width="820">
 </p>
 
 ## For sellers
@@ -134,3 +137,7 @@ Lumière PayCheck is an independent project operated by **Lumière LLC** (Connec
 ## Feedback
 
 Questions, feature requests, and grade disputes: [open an issue](../../issues). Building an agent that pays with x402? I'd love to hear what it needs.
+
+## License
+
+The documentation and example code in this repository are [MIT licensed](LICENSE). The Lumière PayCheck hosted service and its source code are not part of this repository and are not covered by this license.

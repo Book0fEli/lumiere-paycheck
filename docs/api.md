@@ -54,6 +54,18 @@ Amounts are atomic units (USDC has 6 decimals: `10000` = $0.01). Only `url` is r
 }
 ```
 
+## `GET /v1/failures?url=<endpoint>` · free
+
+Every check in the last 7 days that didn't return a valid payment quote.
+
+```json
+{ "url": "…", "windowDays": 7, "userAgent": "lumiere-paycheck-prober/1.0 (+https://lumierepaycheck.org)",
+  "checkedFrom": "Render, US East (Virginia)",
+  "failures": [ { "at": "2026-09-26T15:46:40Z", "status": "blocked", "httpStatus": 429, "detail": "rate limited (HTTP 429)", "counts": false } ] }
+```
+
+`status` is `unreachable` (timeout or connection error, after one retry), `not_x402` (no payment quote), `invalid_402` (malformed quote), or `blocked` (we were rate-limited or bot-challenged; never counts against uptime).
+
 ## `GET /v1/leaderboard?limit=25` · free
 
 Top endpoints graded `proceed` or `caution` with no payout-wallet incidents (max 100).

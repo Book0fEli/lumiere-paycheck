@@ -30,6 +30,7 @@ Lumière PayCheck answers those questions. It monitors every endpoint listed in 
 - **Plans for teams (new).** Scoped agent keys, daily/monthly spend limits, signed receipts your wallet verifies before paying, a replayable audit trail, and human review for anomalies. [Details](docs/subscriptions.md).
 - **Alerts.** Watch an endpoint and get signed webhook alerts when it breaks, changes wallet, or raises its price.
 - **Paid delivery checks:** small real payments that confirm an endpoint returns what it advertises. A failure only counts if a re-test about two hours later fails too, and requests an endpoint rejects for missing input never count.
+- **Real usage from on-chain data:** actual x402 payments (USDC on Base) into each endpoint's payout wallet over 30 days: volume, distinct buyers, and how concentrated they are.
 - **Community outcome reports:** agents that pay through us report whether calls worked. Reports only point our re-tests at problems; grades change only when our own paid test confirms. On by default, easy to opt out.
 
 No accounts, no API keys. Free checks are free; paid features are paid per call with x402, the same way agents pay everything else.
@@ -173,6 +174,10 @@ Lumière PayCheck is an independent project operated by **Lumière LLC** (Connec
 ## Feedback
 
 Questions, feature requests, and grade disputes: [open an issue](../../issues/new/choose) and pick the matching form. Building an agent that pays with x402? I'd love to hear what it needs.
+
+## Security
+
+How keys, payments, and data are protected, including current limitations: [SECURITY.md](SECURITY.md) (also at [lumierepaycheck.org/security](https://lumierepaycheck.org/security)). Report vulnerabilities privately via [GitHub security advisories](../../security/advisories/new) or hello@lumierepaycheck.org.
 
 ## License
 

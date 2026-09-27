@@ -92,6 +92,16 @@ A live SVG badge with the current number of monitored endpoints, for READMEs:
 
 Top endpoints graded `proceed` or `caution` with no payout-wallet incidents (max 100).
 
+### `usage` (in `/v1/score` and leaderboard items)
+
+Real x402 settlements into the endpoint's payout wallet over the last 30 days, from our own index of public USDC transfers on Base (only `transferWithAuthorization`, how x402 settles):
+
+```json
+"usage": { "scope": "payout wallet", "volumeUsd30d": 842.15, "settlements30d": 210, "buyers30d": 34, "topBuyerShare": 0.22, "endpointsSharingWallet": 3 }
+```
+
+`null` when no settlements are indexed yet. Volume is per payout wallet: if several endpoints share it, `endpointsSharingWallet` says how many and the total covers all of them. It's a floor: other networks and history before the index started aren't counted.
+
 ## `GET /v1/stats` · free
 
 Example response (numbers change as the catalog grows):

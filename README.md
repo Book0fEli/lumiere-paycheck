@@ -164,7 +164,7 @@ Every monitored endpoint has a public page and a badge that updates on its own:
 [![Lumière PayCheck](https://lumierepaycheck.org/badge?url=YOUR_ENDPOINT_URL_ENCODED)](https://lumierepaycheck.org/e?url=YOUR_ENDPOINT_URL_ENCODED)
 ```
 
-Think a grade is wrong? [Open an issue](../../issues) with the endpoint URL.
+Think a grade is wrong? [Open a Grade dispute](../../issues/new/choose) with the endpoint URL. A bot replies within a minute with the endpoint's current score and failure log, and queues a paid re-test automatically.
 
 ## Independence
 

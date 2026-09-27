@@ -160,6 +160,10 @@ Plan purchase, agent keys, authorization, receipts, reviews, and audit are docum
 
 Keys go in `Authorization: Bearer <key>`. Owner keys start with `pc_owner_`, agent keys with `pc_agent_`.
 
+## `POST /v1/dispute` · free
+
+Request a paid re-test of an endpoint's grade: `{ "url": "https://api.example.com/x" }`. Once per endpoint per 24 hours. Returns the current score and links to the endpoint page and failure log. Opening a **Grade dispute** issue in this repo calls this for you and posts the result automatically.
+
 ## `POST /v1/report` · free (subscribers' receipts)
 
 After paying with a Lumière receipt, report whether the response was usable:

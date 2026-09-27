@@ -9,6 +9,7 @@ body:
         Thanks for checking. Before filing, open the endpoint's page (lumierepaycheck.org/e?url=...) and look at
         **Recent failed checks**: it lists every failed check with a UTC timestamp and whether it counts.
         Checks where our monitor was rate-limited, blocked by a firewall, or hit a network we don't support never count.
+        When you submit, a bot replies automatically with the current score and queues a paid re-test.
   - type: input
     id: endpoint
     attributes:

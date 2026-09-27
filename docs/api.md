@@ -160,6 +160,21 @@ Plan purchase, agent keys, authorization, receipts, reviews, and audit are docum
 
 Keys go in `Authorization: Bearer <key>`. Owner keys start with `pc_owner_`, agent keys with `pc_agent_`.
 
+## `POST /v1/report` · free (subscribers' receipts)
+
+After paying with a Lumière receipt, report whether the response was usable:
+
+```json
+{ "receipt": "eyJ2Ijox…", "outcome": "problem", "problems": ["missing field price"], "httpStatus": 200, "tx": "0x…" }
+```
+
+→ `{ "accepted": true, "retestQueued": false, "thanks": "…" }`
+
+- `outcome`: `delivered` or `problem`. Reports must arrive within 24 hours of the decision, one per payment.
+- **Reports are tips, not verdicts.** When several independent customers report a problem, our verifier re-tests the endpoint with a real payment, and the grade changes only if that test confirms it. Accounts under a day old can't trigger a re-test on their own, and coordinated reports are ignored.
+- Endpoint pages show totals ("Buyer reports"), never who reported.
+- Opt out for a whole workspace with `PATCH /v1/workspace { "reporting": false }` or the toggle on the account page.
+
 ## MCP
 
 Remote server (Streamable HTTP): `https://lumierepaycheck.org/mcp`
@@ -171,6 +186,7 @@ Remote server (Streamable HTTP): `https://lumierepaycheck.org/mcp`
 | `top_endpoints` | Most trustworthy endpoints |
 | `catalog_stats` | Catalog size and verdict counts |
 | `get_full_report` | How to buy the full report |
+| `report_outcome` | After paying with a receipt, report whether the response was usable |
 
 ## Rate limits
 

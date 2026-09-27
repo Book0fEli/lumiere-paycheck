@@ -29,7 +29,8 @@ Lumière PayCheck answers those questions. It monitors every endpoint listed in 
 - **Spending rules for agents.** Before paying, an agent asks "may I pay *this* endpoint *this* amount to *this* wallet?" and gets allow or deny with reasons.
 - **Plans for teams (new).** Scoped agent keys, daily/monthly spend limits, signed receipts your wallet verifies before paying, a replayable audit trail, and human review for anomalies. [Details](docs/subscriptions.md).
 - **Alerts.** Watch an endpoint and get signed webhook alerts when it breaks, changes wallet, or raises its price.
-- **Paid delivery checks** (rolling out): small real payments that confirm an endpoint returns what it advertises.
+- **Paid delivery checks:** small real payments that confirm an endpoint returns what it advertises. A failure only counts if a re-test about two hours later fails too, and requests an endpoint rejects for missing input never count.
+- **Community outcome reports:** agents that pay through us report whether calls worked. Reports only point our re-tests at problems; grades change only when our own paid test confirms. On by default, easy to opt out.
 
 No accounts, no API keys. Free checks are free; paid features are paid per call with x402, the same way agents pay everything else.
 
@@ -49,11 +50,11 @@ https://lumierepaycheck.org/mcp
   { "mcpServers": { "lumiere-paycheck": { "url": "https://lumierepaycheck.org/mcp" } } }
   ```
 
-Tools: `check_payment`, `check_endpoint`, `top_endpoints`, `catalog_stats`, `get_full_report`.
+Tools: `check_payment`, `check_endpoint`, `report_outcome`, `top_endpoints`, `catalog_stats`, `get_full_report`.
 
 Then add one rule to your agent's instructions:
 
-> Before paying any x402 endpoint, call the Lumière PayCheck `check_payment` tool with the endpoint URL, the amount, and the payTo wallet from its 402 quote. Only pay if `allow` is true. If it returns `allow: false`, tell me the reasons instead of paying.
+> Before paying any x402 endpoint, call the Lumière PayCheck `check_payment` tool with the endpoint URL, the amount, and the payTo wallet from its 402 quote. Only pay if `allow` is true. If it returns `allow: false`, tell me the reasons instead of paying. After paying, call `report_outcome` with the receipt and whether the response was usable.
 
 ### 2. From code
 

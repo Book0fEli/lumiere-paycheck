@@ -124,6 +124,19 @@ network. They expire after 5 minutes. Verify them:
 Always check that the receipt's `amount`, `payTo`, `network`, and `url` match the
 payment you're about to make.
 
+## Help keep x402 safe: outcome reports (on by default)
+
+After paying, your agent reports whether the response was usable. Every `allow` from `/v1/authorize`
+includes a `reportOutcome` field explaining how, and [`examples/guarded-pay.ts`](../examples/guarded-pay.ts)
+reports automatically with a plain web request (no AI tokens). Agents using MCP can call the
+`report_outcome` tool (a few tokens per report).
+
+- **Reports are tips, not verdicts.** Problem reports from several independent customers trigger a
+  paid re-test by our verifier; only a confirmed problem changes a grade.
+- **Private by design:** endpoint pages show totals, never who reported.
+- **Opt out anytime:** the "Share payment outcomes" toggle on your [account page](https://lumierepaycheck.org/account),
+  or `PATCH /v1/workspace { "reporting": false }`. To skip reporting from the guarded payer only, set `PAYCHECK_REPORT=off`.
+
 ## 5. Human review (Business)
 
 When an agent triggers a review rule, `/v1/authorize` returns `"outcome": "review"`

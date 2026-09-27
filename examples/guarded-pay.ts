@@ -45,7 +45,24 @@ export function guardedFetch(agentKey: string, walletKey: `0x${string}`) {
       String(r.network) === network &&
       BigInt(r.amount ?? r.maxAmountRequired) <= BigInt(amount));
     const client = registerExactEvmScheme(new x402Client(), { signer, policies: [pin as any] });
-    return wrapFetchWithPayment(fetch, client)(url, init);
+    const paidRes = await wrapFetchWithPayment(fetch, client)(url, init);
+
+    // 5. Help the community: report whether the paid call delivered. A plain
+    //    web request (no AI tokens). Reports only trigger Lumière's own
+    //    re-tests; they never change a grade directly. Opt out with
+    //    PAYCHECK_REPORT=off, or turn reporting off for the whole workspace
+    //    on your account page.
+    if (process.env.PAYCHECK_REPORT !== "off") {
+      const body = await paidRes.clone().text().catch(() => "");
+      const problems: string[] = [];
+      if (paidRes.status !== 200) problems.push(`HTTP ${paidRes.status}`);
+      if (!body.trim()) problems.push("empty body");
+      fetch(`${PAYCHECK}/v1/report`, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ receipt: d.receipt, outcome: problems.length ? "problem" : "delivered", problems, httpStatus: paidRes.status }),
+      }).catch(() => { /* reporting is best-effort */ });
+    }
+    return paidRes;
   };
 }
 

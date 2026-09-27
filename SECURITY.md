@@ -45,7 +45,7 @@ Operated by Lumière LLC (Connecticut, USA). Contact: hello@lumierepaycheck.org.
 
 ## Data retention
 
-- Endpoint monitoring checks: 8 days. Events and paid delivery results: 90 days. Settlement records: 90 days.
+- Endpoint monitoring checks: 8 days. Events and paid delivery results: 90 days. Individual settlement records: 45 days; daily settlement totals per payout wallet: 1 year.
 - Payment decisions: 30 days on Builder, 1 year on Business.
 - Outcome reports: 90 days. Key recovery requests: 30 days. Closed enterprise inquiries: 1 year.
 - Workspaces remain until you ask us to delete them (email hello@lumierepaycheck.org).

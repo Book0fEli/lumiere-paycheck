@@ -94,11 +94,19 @@ Top endpoints graded `proceed` or `caution` with no payout-wallet incidents (max
 
 ### `usage` (in `/v1/score` and leaderboard items)
 
-Real x402 settlements into the endpoint's payout wallet over the last 30 days, from our own index of public USDC transfers on Base (only `transferWithAuthorization`, how x402 settles):
+Real x402 settlements into the endpoint's payout wallet over the last 30 days, from our own index of public USDC payments on Base, attributed to x402 facilitators:
 
 ```json
-"usage": { "scope": "payout wallet", "volumeUsd30d": 842.15, "settlements30d": 210, "buyers30d": 34, "topBuyerShare": 0.22, "endpointsSharingWallet": 3 }
+"usage": { "scope": "payout wallet", "volumeUsd30d": 842.15, "settlements30d": 210, "buyers30d": 34, "topBuyerShare": 0.22,
+           "medianUsd30d": 3.5, "maxUsd30d": 42, "trend7d": 0.95, "firstSeen": "2026-09-01",
+           "facilitators": [{ "settler": "0x…", "share": 0.8 }], "attribution": "facilitator", "endpointsSharingWallet": 3 }
 ```
+
+`attribution: "facilitator"` means only payments submitted by recognized x402 facilitators are counted (facilitators are recognized by behavior: settling for many sellers from many buyers). `"authorization-only"` is a less precise fallback used when submitter data isn't available yet.
+
+### `GET /v1/usage?url=&days=` · free
+
+The daily series behind `usage`: `{ url, payTo, usage, daily: [{ date, volumeUsd, settlements }], days, index }`. `days` up to 365 (older days come from daily summaries). `index` shows coverage, lag, and attribution mode.
 
 `null` when no settlements are indexed yet. Volume is per payout wallet: if several endpoints share it, `endpointsSharingWallet` says how many and the total covers all of them. It's a floor: other networks and history before the index started aren't counted.
 

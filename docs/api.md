@@ -94,7 +94,7 @@ Top endpoints graded `proceed` or `caution` with no payout-wallet incidents (max
 
 ### `usage` (in `/v1/score` and leaderboard items)
 
-Real x402 settlements into the endpoint's payout wallet over the last 30 days, from our own index of public USDC payments on Base, attributed to x402 facilitators:
+Real x402 settlements into the endpoint's payout wallet over the last 30 days, from our own index of public USDC payments on **Base and Solana**, attributed to x402 facilitators (on Solana, the facilitator is the transaction's fee payer: the buyer signs, the facilitator pays the fee and submits):
 
 ```json
 "usage": { "scope": "payout wallet", "volumeUsd30d": 842.15, "settlements30d": 210, "buyers30d": 34, "topBuyerShare": 0.22,

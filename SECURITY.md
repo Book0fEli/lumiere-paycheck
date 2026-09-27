@@ -6,7 +6,7 @@ Operated by Lumière LLC (Connecticut, USA). Contact: hello@lumierepaycheck.org.
 
 ## What we store
 
-- **Public monitoring data:** the price quotes, payout wallets, uptime, and response times of public x402 endpoints, plus public on-chain USDC settlements into those endpoints' payout wallets.
+- **Public monitoring data:** the price quotes, payout wallets, uptime, and response times of public x402 endpoints, plus public on-chain USDC settlements (Base and Solana) into those endpoints' payout wallets.
 - **Subscriber workspaces:** plan, expiry, agent names and limits, and **hashed** keys. Keys are never stored in plain text.
 - **Payment decisions:** each authorization's inputs (endpoint, amount, payout wallet) and its outcome, kept for your plan's audit period so decisions can be replayed.
 - **Card billing:** handled entirely by Stripe. We store only Stripe's customer and subscription IDs. Card numbers never reach our servers.
@@ -34,12 +34,13 @@ Operated by Lumière LLC (Connecticut, USA). Contact: hello@lumierepaycheck.org.
 - **Database queries are parameterized** (prepared statements), never built from strings.
 - **Outbound webhooks** (watch alerts, review notifications) must resolve to public internet addresses; private and internal ranges are blocked. Alerts are signed with HMAC-SHA256.
 - **Rate limits** protect the free API, checkout, key recovery, enterprise inquiries, outcome reports, and grade disputes.
-- **Secrets** live in the hosting provider's environment settings, never in source code, and are masked in logs.
+- **Secrets** live in the hosting provider's environment settings, never in source code, and are masked in logs. Blockchain node URLs that contain provider API keys are never logged.
 - **Community reports** require a valid signed receipt, count one vote per customer, weigh reporters by track record, ignore coordinated bursts from new accounts, and can only trigger our own re-test: they never change a grade by themselves.
 
 ## Infrastructure and operations
 
 - Hosted on **Render** in the **US East (Virginia)** region: one application instance with a SQLite database on a persistent disk.
+- Public blockchain data is read through **blockchain node providers** (a public Base node and a Solana RPC provider). They see which public wallets we query, never customer data.
 - Source code is in a **private GitHub repository** and deploys automatically from the main branch. Public documentation and examples are at github.com/Book0fEli/lumiere-paycheck.
 - **Automatic health monitoring:** the host restarts the service if it stops responding, and the operator is emailed about low verifier funds, disk or catalog capacity, and payment configuration problems, plus a weekly summary.
 

@@ -8,6 +8,8 @@
 
 # Lumière PayCheck
 
+[![Live catalog size](https://lumierepaycheck.org/badge/catalog)](https://lumierepaycheck.org)
+
 **Check an x402 endpoint before your agent pays it.**
 
 AI agents now pay for APIs on their own with [x402](https://x402.org): an endpoint answers `402 Payment Required` with a price, the agent pays in USDC, and gets the data. Nothing in that flow tells the agent whether the endpoint works, whether the price is right, or whether the payout wallet is the real one.
@@ -22,7 +24,7 @@ Lumière PayCheck answers those questions. It monitors every endpoint listed in 
 
 ## What it does
 
-- **Monitors ~17,000 x402 endpoints** from the Bazaar, every 30 minutes: price quote, payout wallet, uptime, response time.
+- **Monitors every endpoint in the x402 Bazaar** (the badge above shows the live count, which grows as new endpoints are listed) every 30 minutes: price quote, payout wallet, uptime, response time.
 - **Flags hijack risk.** If an endpoint's payout wallet changes unexpectedly, its score is capped and agents are told to avoid it.
 - **Spending rules for agents.** Before paying, an agent asks "may I pay *this* endpoint *this* amount to *this* wallet?" and gets allow or deny with reasons.
 - **Plans for teams (new).** Scoped agent keys, daily/monthly spend limits, signed receipts your wallet verifies before paying, a replayable audit trail, and human review for anomalies. [Details](docs/subscriptions.md).

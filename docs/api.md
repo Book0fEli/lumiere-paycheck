@@ -78,13 +78,23 @@ Every check in the last 7 days that didn't return a valid payment quote.
 
 ## `GET /v1/monitor` · free
 
-Monitor health: politeness settings, which statuses never count, and status counts from the last cycle, including which hosts blocked the monitor.
+Monitor health: politeness settings, which statuses never count, status counts from the last cycle (including which hosts blocked the monitor), and catalog capacity.
+
+## `GET /badge/catalog` · free
+
+A live SVG badge with the current number of monitored endpoints, for READMEs:
+
+```markdown
+[![Live catalog size](https://lumierepaycheck.org/badge/catalog)](https://lumierepaycheck.org)
+```
 
 ## `GET /v1/leaderboard?limit=25` · free
 
 Top endpoints graded `proceed` or `caution` with no payout-wallet incidents (max 100).
 
 ## `GET /v1/stats` · free
+
+Example response (numbers change as the catalog grows):
 
 ```json
 { "scoredAt": "…", "endpoints": 16894, "byVerdict": { "proceed": 16379, "caution": 113, "avoid": 295, "free": 26, "insufficient_data": 81 } }

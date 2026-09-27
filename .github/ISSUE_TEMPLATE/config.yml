@@ -6,6 +6,9 @@ contact_links:
   - name: Report a security vulnerability
     url: https://github.com/Book0fEli/lumiere-paycheck/security/advisories/new
     about: Please report security issues privately here, not in a public issue.
+  - name: Lost your owner key? (card subscribers)
+    url: https://lumierepaycheck.org/recover
+    about: Get a one-time recovery link sent to your checkout email. Never post keys in an issue.
   - name: Billing or account help (card subscriptions)
     url: https://lumierepaycheck.org/account
     about: Manage your plan, update your card, or cancel from your account page ("Manage billing").

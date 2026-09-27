@@ -160,6 +160,14 @@ Decisions are kept for your plan's retention period (30 days Builder, 1 year Bus
   <img src="../assets/6-questions.png" alt="Questions: cancel anytime, failed payments, upgrades, no crypto needed" width="760">
 </p>
 
+## Lost your owner key?
+
+Card subscribers can recover access at [lumierepaycheck.org/recover](https://lumierepaycheck.org/recover):
+enter the email you used at checkout, and you'll receive a one-time link (valid 24 hours, usable once)
+that issues a new owner key. The old key stops working immediately; your agents, limits, and history
+are unchanged. Plans paid with USDC have no email on file, so their owner key can't be recovered:
+keep it in a password manager.
+
 ## Security notes
 
 - Keys are shown once and stored only as SHA-256 hashes. Treat them like passwords.

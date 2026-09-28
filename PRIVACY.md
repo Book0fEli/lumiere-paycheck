@@ -2,7 +2,7 @@
 
 Lumière PayCheck (lumierepaycheck.org) is operated by **Lumière LLC**, a Connecticut limited liability company. This policy explains what personal information we collect, why, how long we keep it, and who else handles it. Questions: **hello@lumierepaycheck.org**.
 
-Last updated: September 28, 2026.
+Last updated: September 28, 2026 (enterprise clients section added).
 
 ## The short version
 
@@ -25,6 +25,8 @@ Last updated: September 28, 2026.
 - **Payment decisions:** when your agents ask whether to pay, we store each decision's inputs (endpoint, amount, payout wallet) and outcome for your plan's audit period.
 - **Outcome reports** (on by default, can be turned off): whether a paid call delivered. Shown publicly only as totals per endpoint, never tied to you.
 
+**If you're an enterprise client:** your company name, contact email, the names and email addresses of administrators you or we invite, your agreed terms, and records of invoices (number, amount, dates, paid status). Access links we send are single-use, expire after 7 days, and are stored only in scrambled (hashed) form.
+
 **If you contact us:** the enterprise form collects your name, work email, company, role, and message. Key recovery asks for your checkout email to find your subscription. Emails you send us are kept in our inbox.
 
 **Public data about endpoints and sellers:** we monitor public x402 endpoints (price quotes, payout wallets, uptime) and read public blockchain payments into their payout wallets. This concerns services and wallets, not visitors, but a payout wallet can belong to an individual seller.
@@ -43,7 +45,7 @@ We use these service providers, only for the purposes listed:
 
 - **Render** (hosting, United States): runs the service and stores its database.
 - **Stripe** (card payments): checkout, billing, and receipts.
-- **Resend** (email delivery): sends key recovery links, inquiry confirmations, and operator alerts.
+- **Resend** (email delivery): sends key recovery and access links, inquiry confirmations, renewal reminders, and operator alerts.
 - **Cloudflare** (DNS, email routing, and encrypted backup storage).
 - **Proton** (email inbox): receives mail sent to hello@lumierepaycheck.org.
 - **Blockchain data providers** (a public Base node and a Solana provider such as Helius): we ask them about public wallets and transactions, never about you.
@@ -56,7 +58,7 @@ Our fonts are hosted on our own server, so loading our pages doesn't contact any
 - Visitor totals: kept as daily totals; the daily secret is deleted after each day.
 - Payment decisions: 30 days on Builder, 1 year on Business.
 - Outcome reports: 90 days. Key recovery requests: 30 days. Closed enterprise inquiries: 1 year.
-- Workspaces: until you ask us to delete them.
+- Workspaces, their administrators, and invoice records: until you ask us to delete them (we may keep invoice records longer where tax or accounting law requires).
 - Encrypted backups: the most recent 7 daily and 4 weekly copies; older ones are deleted automatically.
 - Monitoring and settlement data about public endpoints: see our [security page](https://lumierepaycheck.org/security) for the full schedule.
 

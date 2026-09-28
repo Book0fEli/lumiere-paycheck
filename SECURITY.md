@@ -19,7 +19,8 @@ Operated by Lumière LLC (Connecticut, USA). Contact: hello@lumierepaycheck.org.
 - **Owner and agent keys** are 192-bit random values, shown once, and stored only as SHA-256 hashes. We keep a short prefix to help you tell keys apart.
 - **Agent keys are scoped:** allowed sellers, a per-payment cap, daily and monthly limits, and an expiry. Owners can revoke or replace any key instantly.
 - **Owner key recovery** sends a one-time link to the email Stripe has on file. The link expires in 24 hours, works once, and is stored hashed; claiming it issues a new key and revokes the old one immediately. The recovery page gives the same answer whether or not an account exists.
-- **The operator inbox** requires a separate admin key of at least 24 characters, compared in constant time.
+- **Enterprise onboarding without handling keys:** clients receive a one-time access link (7 days, single use, stored hashed; opening it doesn't consume it) and create their own owner key, so the operator never sees it. Clients can have additional administrators, each with their own key that can be revoked individually.
+- **The operator inbox** requires a separate admin key of at least 24 characters, compared in constant time. Every change the operator makes to a client's workspace is recorded in a change log.
 
 ## Payments and funds
 

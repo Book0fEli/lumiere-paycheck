@@ -178,6 +178,10 @@ Plan purchase, agent keys, authorization, receipts, reviews, and audit are docum
 
 Keys go in `Authorization: Bearer <key>`. Owner keys start with `pc_owner_`, agent keys with `pc_agent_`.
 
+## `GET /v1/traffic` · free
+
+Daily usage totals for the last 30 days: `{ days: [{ date, visitors, pageviews, api, mcp, bots }], totals, since, endpointChecks30d, paidChecks30d, topChecked }`. Visitors are counted with a daily-rotating code; no IP addresses are stored. Human-readable version: [/stats](https://lumierepaycheck.org/stats).
+
 ## `POST /v1/dispute` · free
 
 Request a paid re-test of an endpoint's grade: `{ "url": "https://api.example.com/x" }`. Once per endpoint per 24 hours. Returns the current score and links to the endpoint page and failure log. Opening a **Grade dispute** issue in this repo calls this for you and posts the result automatically.

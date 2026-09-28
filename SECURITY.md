@@ -12,7 +12,7 @@ Operated by Lumière LLC (Connecticut, USA). Contact: hello@lumierepaycheck.org.
 - **Card billing:** handled entirely by Stripe. We store only Stripe's customer and subscription IDs. Card numbers never reach our servers.
 - **Email addresses, only when you provide them:** to look up your subscription for key recovery, and in enterprise inquiries (name, work email, company, message).
 - **Outcome reports:** which endpoint, delivered or problem, and optionally a transaction hash. They're linked to your workspace internally and shown publicly only as totals per endpoint, never tied to who reported.
-- **No IP address logs in our database:** rate limits are counted in memory and cleared every minute.
+- **No IP address logs in our database:** rate limits are counted in memory and cleared every minute. Daily visitor counts use a scrambled code built from a secret that changes each day and is then deleted, so visits can't be traced across days or back to an address.
 
 ## Keys and authentication
 
@@ -42,6 +42,8 @@ Operated by Lumière LLC (Connecticut, USA). Contact: hello@lumierepaycheck.org.
 - Hosted on **Render** in the **US East (Virginia)** region: one application instance with a SQLite database on a persistent disk.
 - Public blockchain data is read through **blockchain node providers** (a public Base node and a Solana RPC provider). They see which public wallets we query, never customer data.
 - Source code is in a **private GitHub repository** and deploys automatically from the main branch. Public documentation and examples are at github.com/Book0fEli/lumiere-paycheck.
+- **Encrypted off-site backups:** every night the database is snapshotted, compressed, encrypted with AES-256-GCM using a key held only by the operator, and stored in Cloudflare R2 (7 daily and 4 weekly copies). The operator is alerted if a backup fails.
+- **No third-party requests from our pages:** fonts and scripts are served from our own domain, so visiting the site doesn't contact any other company.
 - **Automatic health monitoring:** the host restarts the service if it stops responding, and the operator is emailed about low verifier funds, disk or catalog capacity, and payment configuration problems, plus a weekly summary.
 
 ## Data retention
@@ -67,7 +69,6 @@ We'd rather you hear these from us:
 - **No SOC 2 or ISO 27001 certification yet,** and no third-party penetration test yet.
 - **Single region and single instance:** deploys and restarts cause brief interruptions.
 - **Small team:** the service is operated by a single founder, with automated monitoring and alerts.
-- **Backups rely on the hosting provider's persistent disk;** independent off-site backups are on the roadmap.
-- **The receipt signing key is stored in the application database** on the server's disk.
+- **The receipt signing key is stored in the application database** on the server's disk (and therefore in the encrypted backups).
 
-Questions for a security review or vendor questionnaire: hello@lumierepaycheck.org, or use the private [Enterprise form](https://lumierepaycheck.org/enterprise).
+Our [privacy policy](https://lumierepaycheck.org/privacy) covers what personal information we collect and who else handles it. Questions for a security review or vendor questionnaire: hello@lumierepaycheck.org, or use the private [Enterprise form](https://lumierepaycheck.org/enterprise).

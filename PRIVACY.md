@@ -2,7 +2,7 @@
 
 Lumière PayCheck (lumierepaycheck.org) is operated by **Lumière LLC**, a Connecticut limited liability company. This policy explains what personal information we collect, why, how long we keep it, and who else handles it. Questions: **hello@lumierepaycheck.org**.
 
-Last updated: September 28, 2026 (support access and trials added).
+Last updated: September 28, 2026 (key-less sign-in and usage billing added).
 
 ## The short version
 
@@ -22,12 +22,13 @@ Last updated: September 28, 2026 (support access and trials added).
 - **By card:** Stripe collects your payment details and email. We receive and store only Stripe's customer and subscription IDs, not your card number.
 - **With USDC (x402):** the payment is a public blockchain transaction from your wallet. We don't collect anything beyond what that transaction publicly shows.
 - **Your workspace:** plan, expiry, agent names, teams and owners you assign, limits and settings, and **hashed** keys (never the keys themselves). If you set an IP allowlist on an agent, we check each request's address against it but store only whether it matched, not the address.
+- **Platform identities you link:** for key-less sign-in, the platform, issuer, and workload name (for example a GitHub repository and branch) allowed to act as each agent. We verify each token and record which workload made a request, never the token itself.
 - **Activity log:** changes made in your workspace and by whom (the owner, a named administrator, or Lumière PayCheck), including any time our support team opens a read-only view of your workspace to help you (these views expire after 15 minutes and can't change anything).
 - **Alerts and integrations you configure:** an alert email address and webhook addresses. If you connect your security tools, we send each payment decision to the address you provide.
 - **Payment decisions:** when your agents ask whether to pay, we store each decision's inputs (endpoint, amount, payout wallet) and outcome for your plan's audit period.
 - **Outcome reports** (on by default, can be turned off): whether a paid call delivered. Shown publicly only as totals per endpoint, never tied to you.
 
-**If you're an enterprise client (including trials):** your company name, contact email, the names and email addresses of administrators you or we invite, your agreed terms, and records of invoices (number, amount, dates, paid status). Access links we send are single-use, expire after 7 days, and are stored only in scrambled (hashed) form.
+**If you're an enterprise client (including trials):** your company name, contact email, the names and email addresses of administrators you or we invite, your agreed terms, usage counts for billing, a billing email if you're on usage pricing, and records of invoices (number, amount, dates, paid status). Usage invoices are created and sent through Stripe. Access links we send are single-use, expire after 7 days, and are stored only in scrambled (hashed) form.
 
 **If you contact us:** the enterprise form collects your name, work email, company, role, and message. Key recovery asks for your checkout email to find your subscription. Emails you send us are kept in our inbox.
 
@@ -46,7 +47,8 @@ We set **no cookies**. If you sign in to your account page, your owner key is ke
 We use these service providers, only for the purposes listed:
 
 - **Render** (hosting, United States): runs the service and stores its database.
-- **Stripe** (card payments): checkout, billing, and receipts.
+- **Stripe** (payments): card checkout, subscription billing, receipts, and monthly usage invoices for enterprise clients.
+- **Your identity platform** (GitHub, Google, Microsoft, or your own): if you use key-less sign-in, we fetch its public signing keys to verify your agents' tokens.
 - **Resend** (email delivery): sends key recovery and access links, inquiry confirmations, renewal reminders, and operator alerts.
 - **Cloudflare** (DNS, email routing, and encrypted backup storage).
 - **Proton** (email inbox): receives mail sent to hello@lumierepaycheck.org.

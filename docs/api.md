@@ -243,3 +243,39 @@ Roles: `viewer` (read-only) < `approver` (+ approve/deny reviews) < `admin` (+ a
 **Webhooks** (alerts and decision streaming) are signed: verify `x-paycheck-signature: sha256=<HMAC-SHA256(webhookSecret, raw body)>`. Alert payloads have `type: "budget_alert"` (`scope`, `threshold`, `percent`, `spent`, `cap`, `period`) or `"spike_alert"` (`agent`, `spentToday`, `dailyAverage7d`, `multiple`); streamed decisions have `type: "decision"` with the decision's chain `hash`.
 
 **Test keys** (`test: true`) behave like normal keys, but their decisions never count toward spending, caps, alerts, or reports, and their receipts include `"test": true`: have production wallets refuse test receipts.
+
+
+## Key-less agent sign-in (workload identity)
+
+Instead of storing an agent key, an agent can send a short-lived token from the platform it runs on. Link the workload to an agent once (account page → **Key-less sign-in**, or `POST /v1/agents/:id/identities`), then send the platform token as the bearer token to `POST /v1/authorize`. The token's **audience** must be `https://lumierepaycheck.org`.
+
+```json
+POST /v1/agents/ag_123/identities
+{ "provider": "github", "subject": "repo:acme/buyer-bot:ref:refs/heads/main" }
+```
+
+`provider` is `github`, `google`, `azure` (with `"tenant": "<tenant ID>"`), or `custom` (with `"issuer": "https://..."`, for Kubernetes, EKS, and other OIDC issuers). Add `"match": "prefix"` to accept any subject starting with the given text (at least 8 characters), and `"claims": { "repository_owner_id": "12345" }` to require extra exact claims.
+
+**GitHub Actions** (the job needs `permissions: id-token: write`):
+
+```yaml
+- name: Pay with Lumière PayCheck (no stored key)
+  run: |
+    TOKEN=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+      "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://lumierepaycheck.org" | jq -r .value)
+    curl -sS https://lumierepaycheck.org/v1/authorize -H "Authorization: Bearer $TOKEN" \
+      -H "content-type: application/json" -d '{"url":"...","amount":"10000","payTo":"0x..."}'
+```
+
+The subject looks like `repo:ORG/REPO:ref:refs/heads/main` (or `repo:ORG/REPO:environment:production` for environments).
+
+**Google Cloud** (Cloud Run, GKE, Compute Engine):
+
+```bash
+TOKEN=$(curl -sS -H "Metadata-Flavor: Google" \
+  "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity?audience=https://lumierepaycheck.org")
+```
+
+The subject is the service account's unique ID (a long number).
+
+Tokens must be signed with RS/PS/ES algorithms, unexpired, and valid for at most 24 hours. Decisions record which workload made the request (issuer and subject), never the token itself.

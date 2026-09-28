@@ -2,7 +2,7 @@
 
 Lumière PayCheck (lumierepaycheck.org) is operated by **Lumière LLC**, a Connecticut limited liability company. This policy explains what personal information we collect, why, how long we keep it, and who else handles it. Questions: **hello@lumierepaycheck.org**.
 
-Last updated: September 28, 2026 (roles, alerts, and integrations added).
+Last updated: September 28, 2026 (support access and trials added).
 
 ## The short version
 
@@ -22,12 +22,12 @@ Last updated: September 28, 2026 (roles, alerts, and integrations added).
 - **By card:** Stripe collects your payment details and email. We receive and store only Stripe's customer and subscription IDs, not your card number.
 - **With USDC (x402):** the payment is a public blockchain transaction from your wallet. We don't collect anything beyond what that transaction publicly shows.
 - **Your workspace:** plan, expiry, agent names, teams and owners you assign, limits and settings, and **hashed** keys (never the keys themselves). If you set an IP allowlist on an agent, we check each request's address against it but store only whether it matched, not the address.
-- **Activity log:** changes made in your workspace and by whom (the owner, a named administrator, or Lumière PayCheck).
+- **Activity log:** changes made in your workspace and by whom (the owner, a named administrator, or Lumière PayCheck), including any time our support team opens a read-only view of your workspace to help you (these views expire after 15 minutes and can't change anything).
 - **Alerts and integrations you configure:** an alert email address and webhook addresses. If you connect your security tools, we send each payment decision to the address you provide.
 - **Payment decisions:** when your agents ask whether to pay, we store each decision's inputs (endpoint, amount, payout wallet) and outcome for your plan's audit period.
 - **Outcome reports** (on by default, can be turned off): whether a paid call delivered. Shown publicly only as totals per endpoint, never tied to you.
 
-**If you're an enterprise client:** your company name, contact email, the names and email addresses of administrators you or we invite, your agreed terms, and records of invoices (number, amount, dates, paid status). Access links we send are single-use, expire after 7 days, and are stored only in scrambled (hashed) form.
+**If you're an enterprise client (including trials):** your company name, contact email, the names and email addresses of administrators you or we invite, your agreed terms, and records of invoices (number, amount, dates, paid status). Access links we send are single-use, expire after 7 days, and are stored only in scrambled (hashed) form.
 
 **If you contact us:** the enterprise form collects your name, work email, company, role, and message. Key recovery asks for your checkout email to find your subscription. Emails you send us are kept in our inbox.
 

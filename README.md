@@ -177,7 +177,7 @@ Questions, feature requests, and grade disputes: [open an issue](../../issues/ne
 
 ## Security and privacy
 
-What personal information we collect and who else handles it: [PRIVACY.md](PRIVACY.md) (also at [lumierepaycheck.org/privacy](https://lumierepaycheck.org/privacy)). Live usage numbers: [lumierepaycheck.org/stats](https://lumierepaycheck.org/stats).
+What personal information we collect and who else handles it: [PRIVACY.md](PRIVACY.md) (also at [lumierepaycheck.org/privacy](https://lumierepaycheck.org/privacy)). Live usage numbers: [lumierepaycheck.org/stats](https://lumierepaycheck.org/stats). Service status and uptime: [lumierepaycheck.org/status](https://lumierepaycheck.org/status).
 
 How keys, payments, and data are protected, including current limitations: [SECURITY.md](SECURITY.md) (also at [lumierepaycheck.org/security](https://lumierepaycheck.org/security)). Report vulnerabilities privately via [GitHub security advisories](../../security/advisories/new) or hello@lumierepaycheck.org.
 

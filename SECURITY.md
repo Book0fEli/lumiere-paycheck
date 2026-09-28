@@ -37,6 +37,7 @@ Operated by Lumière LLC (Connecticut, USA). Contact: hello@lumierepaycheck.org.
 - **HTTPS only**, with HSTS, a strict Content Security Policy (no inline scripts), clickjacking protection (`X-Frame-Options: DENY`), `nosniff`, a referrer policy, and a permissions policy. Cross-origin access is limited to the API routes.
 - **Database queries are parameterized** (prepared statements), never built from strings.
 - **Outbound webhooks** (watch alerts, review notifications, budget and spike alerts, and decision streaming to a client's security tools) must be HTTPS and resolve to public internet addresses; private and internal ranges are blocked. They're signed with HMAC-SHA256 using a per-workspace secret.
+- **Support access is read-only, short-lived, and visible:** when we look at a client's workspace to help them, we use a read-only view that expires after 15 minutes, can't change anything or see webhook secrets, and is recorded in the client's activity log.
 - **Activity log:** every change to a workspace (by its owner, its administrators, or our operator) is recorded with who made it and is visible to the client.
 - **Rate limits** protect the free API, checkout, key recovery, enterprise inquiries, outcome reports, and grade disputes.
 - **Secrets** live in the hosting provider's environment settings, never in source code, and are masked in logs. Blockchain node URLs that contain provider API keys are never logged.
@@ -49,6 +50,7 @@ Operated by Lumière LLC (Connecticut, USA). Contact: hello@lumierepaycheck.org.
 - Source code is in a **private GitHub repository** and deploys automatically from the main branch. Public documentation and examples are at github.com/Book0fEli/lumiere-paycheck.
 - **Encrypted off-site backups:** every night the database is snapshotted, compressed, encrypted with AES-256-GCM using a key held only by the operator, and stored in Cloudflare R2 (7 daily and 4 weekly copies). The operator is alerted if a backup fails.
 - **No third-party requests from our pages:** fonts and scripts are served from our own domain, so visiting the site doesn't contact any other company.
+- **Public status page** at lumierepaycheck.org/status: live component health, 90-day uptime (from a heartbeat the service records every minute), and incident posts with updates.
 - **Automatic health monitoring:** the host restarts the service if it stops responding, and the operator is emailed about low verifier funds, disk or catalog capacity, and payment configuration problems, plus a weekly summary.
 
 ## Data retention

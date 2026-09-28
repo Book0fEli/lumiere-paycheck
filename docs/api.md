@@ -178,6 +178,10 @@ Plan purchase, agent keys, authorization, receipts, reviews, and audit are docum
 
 Keys go in `Authorization: Bearer <key>`. Owner keys start with `pc_owner_`, agent keys with `pc_agent_`.
 
+## `GET /v1/status` · free
+
+Live service status: `{ overall, components: [{ name, state, detail }], uptime90d, uptimeDays: [{ date, pct }], incidents: { open, recent } }`. `state` is `operational`, `degraded`, `down`, or `not_configured`. Human-readable version: [/status](https://lumierepaycheck.org/status).
+
 ## `GET /v1/traffic` · free
 
 Daily usage totals for the last 30 days: `{ days: [{ date, visitors, pageviews, api, mcp, bots }], totals, since, endpointChecks30d, paidChecks30d, topChecked }`. Visitors are counted with a daily-rotating code; no IP addresses are stored. Human-readable version: [/stats](https://lumierepaycheck.org/stats).

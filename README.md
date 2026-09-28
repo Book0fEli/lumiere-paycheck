@@ -177,7 +177,7 @@ Questions, feature requests, and grade disputes: [open an issue](../../issues/ne
 
 ## Documentation
 
-Guides for evaluating and running Lumière PayCheck: [overview](https://lumierepaycheck.org/docs/overview), [features](https://lumierepaycheck.org/docs/features), [pricing](https://lumierepaycheck.org/docs/pricing), [getting started](https://lumierepaycheck.org/docs/getting-started), [administrator guide](https://lumierepaycheck.org/docs/admin-guide), [integration guide](https://lumierepaycheck.org/docs/integration), and [FAQ](https://lumierepaycheck.org/docs/faq). Printable brief: [Enterprise overview (PDF)](https://lumierepaycheck.org/docs/lumiere-paycheck-enterprise-overview.pdf).
+Guides for evaluating and running Lumière PayCheck: [overview](https://lumierepaycheck.org/docs/overview), [features](https://lumierepaycheck.org/docs/features), [pricing](https://lumierepaycheck.org/docs/pricing), [getting started](https://lumierepaycheck.org/docs/getting-started), [administrator guide](https://lumierepaycheck.org/docs/admin-guide), [integration guide](https://lumierepaycheck.org/docs/integration), and [FAQ](https://lumierepaycheck.org/docs/faq). PDFs: [Enterprise plan guide](https://lumierepaycheck.org/docs/lumiere-paycheck-enterprise-plan-guide.pdf) (everything included) and [4-page overview](https://lumierepaycheck.org/docs/lumiere-paycheck-enterprise-overview.pdf).
 
 ## Security and privacy
 

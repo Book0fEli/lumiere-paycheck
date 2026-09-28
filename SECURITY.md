@@ -17,7 +17,9 @@ Operated by Lumière LLC (Connecticut, USA). Contact: hello@lumierepaycheck.org.
 ## Keys and authentication
 
 - **Owner and agent keys** are 192-bit random values, shown once, and stored only as SHA-256 hashes. We keep a short prefix to help you tell keys apart.
-- **Agent keys are scoped:** allowed sellers, a per-payment cap, daily and monthly limits, and an expiry. Owners can revoke or replace any key instantly.
+- **Agent keys are scoped:** allowed sellers, a per-payment cap, daily and monthly limits, an expiry, and optionally an **IP allowlist** (a key only works from the client's own addresses). Owners can revoke or replace any key instantly.
+- **Roles and separation of duties:** each workspace has an owner plus administrators with roles: viewers (read-only, e.g. finance and auditors), approvers (can also approve or deny payments in review), and admins (manage agents and settings). Only the owner invites people and manages billing. Roles are enforced on every request.
+- **Company controls:** a freeze switch that pauses every agent instantly, a company-wide blocklist of sellers and wallets, and optional company-wide caps.
 - **Owner key recovery** sends a one-time link to the email Stripe has on file. The link expires in 24 hours, works once, and is stored hashed; claiming it issues a new key and revokes the old one immediately. The recovery page gives the same answer whether or not an account exists.
 - **Enterprise onboarding without handling keys:** clients receive a one-time access link (7 days, single use, stored hashed; opening it doesn't consume it) and create their own owner key, so the operator never sees it. Clients can have additional administrators, each with their own key that can be revoked individually.
 - **The operator inbox** requires a separate admin key of at least 24 characters, compared in constant time. Every change the operator makes to a client's workspace is recorded in a change log.
@@ -25,6 +27,7 @@ Operated by Lumière LLC (Connecticut, USA). Contact: hello@lumierepaycheck.org.
 ## Payments and funds
 
 - **No custody.** We never hold, route, or escrow customer funds. Agents pay sellers directly from their own wallets; Lumière PayCheck only answers whether a payment should happen.
+- **Tamper-evident audit trail.** Each payment decision stores a SHA-256 hash covering the previous decision's hash, so any later edit or deletion is detectable; clients can verify their chain anytime (`GET /v1/audit/verify`). Every decision stores its full inputs, so it can be replayed exactly.
 - **Signed receipts.** An "allow" comes with an Ed25519 signature over the exact payment (endpoint, amount, payout wallet, decision ID), so a wallet can refuse to pay without one. The public key is published at `/.well-known/paycheck-receipt-key.json`.
 - **Subscriptions** use Stripe Checkout. Stripe webhooks are verified with HMAC-SHA256 signatures and a 5-minute replay window. USDC plans are paid through an x402 facilitator.
 - **The verifier wallet** is a small, separately funded wallet used only for paid delivery checks. Each check is capped at $0.05 and automatic checks target endpoints priced at $0.01 or less. Its key is held as a server secret, and the operator is alerted when its balance runs low.
@@ -33,7 +36,8 @@ Operated by Lumière LLC (Connecticut, USA). Contact: hello@lumierepaycheck.org.
 
 - **HTTPS only**, with HSTS, a strict Content Security Policy (no inline scripts), clickjacking protection (`X-Frame-Options: DENY`), `nosniff`, a referrer policy, and a permissions policy. Cross-origin access is limited to the API routes.
 - **Database queries are parameterized** (prepared statements), never built from strings.
-- **Outbound webhooks** (watch alerts, review notifications) must resolve to public internet addresses; private and internal ranges are blocked. Alerts are signed with HMAC-SHA256.
+- **Outbound webhooks** (watch alerts, review notifications, budget and spike alerts, and decision streaming to a client's security tools) must be HTTPS and resolve to public internet addresses; private and internal ranges are blocked. They're signed with HMAC-SHA256 using a per-workspace secret.
+- **Activity log:** every change to a workspace (by its owner, its administrators, or our operator) is recorded with who made it and is visible to the client.
 - **Rate limits** protect the free API, checkout, key recovery, enterprise inquiries, outcome reports, and grade disputes.
 - **Secrets** live in the hosting provider's environment settings, never in source code, and are masked in logs. Blockchain node URLs that contain provider API keys are never logged.
 - **Community reports** require a valid signed receipt, count one vote per customer, weigh reporters by track record, ignore coordinated bursts from new accounts, and can only trigger our own re-test: they never change a grade by themselves.

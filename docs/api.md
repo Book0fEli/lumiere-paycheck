@@ -217,3 +217,25 @@ Remote server (Streamable HTTP): `https://lumierepaycheck.org/mcp`
 ## Rate limits
 
 Free routes: 60 requests/minute per client, with `ratelimit-limit`, `ratelimit-remaining`, and `retry-after` headers. Over the limit → `429`. For volume, use `/v1/score/batch`.
+
+
+## Workspace governance (owner and administrator keys)
+
+Roles: `viewer` (read-only) < `approver` (+ approve/deny reviews) < `admin` (+ agents and settings) < `owner` (+ people and billing). Calls above your role return `403`.
+
+| Call | Role | What it does |
+|---|---|---|
+| `GET /v1/workspace` | viewer | Plan, limits, your role, freeze state, blocklist, alert settings (admins also see `webhookSecret`) |
+| `PATCH /v1/workspace` | admin | `frozen`, `policy: { blockedHosts, blockedWallets }`, `alertEmail`, `alertWebhook`, `siemWebhook`, `alertSettings: { thresholds, spikeMultiplier, spikeMinUsd }` |
+| `POST /v1/agents` | admin | Also accepts `team`, `owner`, `allowedIps` (addresses or CIDR ranges), `test` |
+| `GET /v1/reports/spend?days=30` | viewer | Spending by team and agent; `&format=csv` for a file |
+| `GET /v1/activity` | viewer | Who changed what, including Lumière PayCheck |
+| `GET /v1/audit/verify` | viewer | Recomputes the tamper-evident decision chain: `{ ok, checked }` or the first altered or missing record |
+| `GET /v1/administrators` | viewer | People and their roles |
+| `POST /v1/administrators` | owner | `{ name, email, role, send }`: invites by one-time link |
+| `PATCH /v1/administrators/:id` | owner | `{ role }` |
+| `DELETE /v1/administrators/:id` | owner | Removes a person; their key stops working |
+
+**Webhooks** (alerts and decision streaming) are signed: verify `x-paycheck-signature: sha256=<HMAC-SHA256(webhookSecret, raw body)>`. Alert payloads have `type: "budget_alert"` (`scope`, `threshold`, `percent`, `spent`, `cap`, `period`) or `"spike_alert"` (`agent`, `spentToday`, `dailyAverage7d`, `multiple`); streamed decisions have `type: "decision"` with the decision's chain `hash`.
+
+**Test keys** (`test: true`) behave like normal keys, but their decisions never count toward spending, caps, alerts, or reports, and their receipts include `"test": true`: have production wallets refuse test receipts.

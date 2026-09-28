@@ -46,7 +46,7 @@ We set **no cookies**. If you sign in to your account page, your owner key is ke
 
 We use these service providers, only for the purposes listed:
 
-- **Render** (hosting, United States): runs the service and stores its database.
+- **Render** (hosting, United States): runs the service and stores its database. Like any host, its network processes request data, including IP addresses, to deliver and protect traffic; we don't store IP addresses ourselves.
 - **Stripe** (payments): card checkout, subscription billing, receipts, and monthly usage invoices for enterprise clients.
 - **Your identity platform** (GitHub, Google, Microsoft, or your own): if you use key-less sign-in, we fetch its public signing keys to verify your agents' tokens.
 - **Resend** (email delivery): sends key recovery and access links, inquiry confirmations, renewal reminders, and operator alerts.

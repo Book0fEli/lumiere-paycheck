@@ -175,6 +175,10 @@ Lumière PayCheck is an independent project operated by **Lumière LLC** (Connec
 
 Questions, feature requests, and grade disputes: [open an issue](../../issues/new/choose) and pick the matching form. Building an agent that pays with x402? I'd love to hear what it needs.
 
+## Documentation
+
+Guides for evaluating and running Lumière PayCheck: [overview](https://lumierepaycheck.org/docs/overview), [features](https://lumierepaycheck.org/docs/features), [pricing](https://lumierepaycheck.org/docs/pricing), [getting started](https://lumierepaycheck.org/docs/getting-started), [administrator guide](https://lumierepaycheck.org/docs/admin-guide), [integration guide](https://lumierepaycheck.org/docs/integration), and [FAQ](https://lumierepaycheck.org/docs/faq). Printable brief: [Enterprise overview (PDF)](https://lumierepaycheck.org/docs/lumiere-paycheck-enterprise-overview.pdf).
+
 ## Security and privacy
 
 What personal information we collect and who else handles it: [PRIVACY.md](PRIVACY.md) (also at [lumierepaycheck.org/privacy](https://lumierepaycheck.org/privacy)). Live usage numbers: [lumierepaycheck.org/stats](https://lumierepaycheck.org/stats). Service status and uptime: [lumierepaycheck.org/status](https://lumierepaycheck.org/status).

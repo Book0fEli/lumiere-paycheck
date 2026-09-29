@@ -178,6 +178,10 @@ Plan purchase, agent keys, authorization, receipts, reviews, and audit are docum
 
 Keys go in `Authorization: Bearer <key>`. Owner keys start with `pc_owner_`, agent keys with `pc_agent_`.
 
+## Paying over x402: Base or Solana
+
+Paid routes (`GET /v1/report`, `POST /v1/score/batch`, `POST /v1/watch`, `POST /v1/plans/builder`, `POST /v1/plans/business`) answer `402 Payment Required` with two options at the same price: USDC on Base and USDC on Solana. Your x402 client pays with whichever network its wallet supports. On Solana, the facilitator pays the transaction fee, so the wallet only needs USDC.
+
 ## `GET /v1/status` · free
 
 Live service status: `{ overall, components: [{ name, state, detail }], uptime90d, uptimeDays: [{ date, pct }], incidents: { open, recent } }`. `state` is `operational`, `degraded`, `down`, or `not_configured`. Human-readable version: [/status](https://lumierepaycheck.org/status).

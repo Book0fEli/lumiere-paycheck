@@ -31,8 +31,8 @@ Operated by Lumière LLC (Connecticut, USA). Contact: hello@lumierepaycheck.org.
 - **Tamper-evident audit trail.** Each payment decision stores a SHA-256 hash covering the previous decision's hash, so any later edit or deletion is detectable; clients can verify their chain anytime (`GET /v1/audit/verify`). Every decision stores its full inputs, so it can be replayed exactly.
 - **Signed receipts.** An "allow" comes with an Ed25519 signature over the exact payment (endpoint, amount, payout wallet, decision ID), so a wallet can refuse to pay without one. The public key is published at `/.well-known/paycheck-receipt-key.json`.
 - **Usage billing** for enterprise clients is invoiced monthly through Stripe (Stripe emails the invoice and collects payment); every request to Stripe carries an idempotency key and each client can be invoiced at most once per month.
-- **Subscriptions** use Stripe Checkout. Stripe webhooks are verified with HMAC-SHA256 signatures and a 5-minute replay window. USDC plans are paid through an x402 facilitator.
-- **The verifier wallet** is a small, separately funded wallet used only for paid delivery checks. Each check is capped at $0.05 and automatic checks target endpoints priced at $0.01 or less. Its key is held as a server secret, and the operator is alerted when its balance runs low.
+- **Subscriptions** use Stripe Checkout. Stripe webhooks are verified with HMAC-SHA256 signatures and a 5-minute replay window. USDC plans are paid through an x402 facilitator, on Base or Solana.
+- **The verifier wallets** (one on Base, one on Solana) are small, separately funded wallets used only for paid delivery checks. Each check is capped at $0.05, automatic checks target endpoints priced at $0.01 or less, and the verifier only ever pays in USDC, to exactly the wallet, network, and amount it pre-approved. Their keys are held as server secrets, each wallet keeps a reserve, and the operator is alerted when either runs low.
 
 ## Application security
 

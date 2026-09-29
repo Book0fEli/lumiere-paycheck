@@ -10,8 +10,12 @@ Paid routes use [x402](https://x402.org) on Base mainnet (USDC). Request the rou
 
 ```json
 { "url": "https://api.example.com/x", "score": 100, "grade": "A", "verdict": "proceed",
-  "delivery": "unverified", "probes": 96, "uptimePct": 100 }
+  "delivery": "unverified", "probes": 96, "uptimePct": 100,
+  "payToMode": "fixed", "walletChanges": 0, "walletUnconfirmed": 0, "walletConfirmed": 0 }
 ```
+
+- `payToMode`: `fixed`, or `per_request` for sellers that issue a new payout address on every request (their address changes are normal and never count).
+- `walletChanges`: payout-wallet incidents in 7 days (avoid). `walletUnconfirmed`: changes nobody could confirm after 24 hours (caution). `walletConfirmed`: changes confirmed as the seller's own rotation (no effect). See [Payout-wallet changes](#payout-wallet-changes).
 
 Unknown endpoint → `404 {"error":"not_monitored"}`.
 
@@ -32,14 +36,15 @@ Spending rules for agents. Send what you're about to pay; get allow/deny with re
     "allowCaution": true,
     "requireVerified": false,
     "requireMonitored": true,
-    "pinPayTo": true
+    "pinPayTo": true,
+    "allowUnconfirmedWallet": false
   }
 }
 ```
 
 Amounts are atomic units (USDC has 6 decimals: `10000` = $0.01). Only `url` is required; rules have the defaults shown.
 
-**Denies when:** the verdict is `avoid`; the verdict is `caution` and `allowCaution` is false; there isn't enough data and `requireMonitored` is true; `requireVerified` is true and no paid test has passed; the payout wallet changed unexpectedly in the last 7 days; `amount` exceeds `maxAmount`; `amount` is higher than the monitored price; `payTo` differs from the monitored wallet (possible hijack); the network differs.
+**Denies when:** the verdict is `avoid`; the verdict is `caution` and `allowCaution` is false; there isn't enough data and `requireMonitored` is true; `requireVerified` is true and no paid test has passed; the payout wallet changed unexpectedly in the last 7 days; the payout wallet changed and couldn't be confirmed as the seller's (a *reviewable* reason: `reviewable: true`, unless `allowUnconfirmedWallet` is true); `payTo` isn't one of the wallets the seller declares; `amount` exceeds `maxAmount`; `amount` is higher than the monitored price; `payTo` differs from the monitored wallet (possible hijack; skipped for `per_request` sellers, with a note); the network differs.
 
 **Response**
 
@@ -50,9 +55,56 @@ Amounts are atomic units (USDC has 6 decimals: `10000` = $0.01). Only `url` is r
   "monitored": true,
   "url": "https://api.example.com/x",
   "verdict": "proceed", "grade": "A", "score": 100, "delivery": "unverified",
+  "payToMode": "fixed", "walletUnconfirmed": 0, "reviewable": false,
   "observed": { "payTo": "0x…", "amount": "10000", "network": "eip155:8453", "seenAt": "…" }
 }
 ```
+
+## Payout-wallet changes
+
+A changed payout wallet is either the seller's own rotation or a possible hijack, and monitoring alone can't tell them apart. So every unexplained change is reviewed (every 15 minutes) against independent evidence:
+
+1. **Seller declaration.** The seller lists its payout wallets on its own domain (see [Declaring your wallets](#declaring-your-wallets-sellers)). A declared new wallet confirms the change; a declaration that leaves it out makes it critical.
+2. **Seller history.** The new wallet was already this seller's payout wallet (on another endpoint of the same host) before the switch.
+3. **On-chain link (Base).** Funds moved directly between the old and the new wallet.
+4. **Switch back.** The endpoint went back to its old wallet (A → B → A): an unplanned change, kept critical.
+
+| Review result | Grade | Payments (`/v1/check-payment`, `/v1/authorize`) |
+|---|---|---|
+| `confirmed` | no effect | allowed as usual |
+| `unconfirmed`, first 24 hours | avoid | denied |
+| `unconfirmed`, after 24 hours | caution (score max 70) | check-payment: denied with a reviewable reason (`allowUnconfirmedWallet` to allow); authorize: human review on Business, denied otherwise |
+| `reverted`, `undeclared` | avoid | denied |
+| `per_request` | no effect | allowed; payTo isn't pinned |
+
+### `GET /v1/wallet-changes?url=<endpoint>` · free
+
+```json
+{ "url": "…", "payToMode": "fixed",
+  "declaration": { "payTo": ["0x…"], "source": "https://example.com/.well-known/paycheck.json" },
+  "changes": [ { "at": "…", "from": "0x…", "to": "0x…", "status": "confirmed",
+                 "evidence": { "declared": "listed by the seller at …", "summary": "confirmed: the seller declares this wallet (…)" },
+                 "checkedAt": "…" } ] }
+```
+
+### Declaring your wallets (sellers)
+
+Publish your payout wallets on the domain that serves your endpoints. Either:
+
+- **File:** `https://<your-host>/.well-known/paycheck.json`
+  ```json
+  { "payTo": ["0xYourBaseWallet", "YourSolanaWallet"] }
+  ```
+- **DNS TXT record** at `_paycheck.<your-host>`: `payto=0xYourBaseWallet,YourSolanaWallet`
+
+The parent domain is checked too (`api.example.com` → `example.com`), except on shared hosting (vercel.app, workers.dev, onrender.com, …). Declarations are cached for 6 hours. To have yours read right away:
+
+```bash
+curl -X POST https://lumierepaycheck.org/v1/declaration -H "content-type: application/json" \
+  -d '{"url":"https://api.example.com/your-endpoint"}'
+```
+
+Once declared: switching between declared wallets is a normal rotation (never flagged), and any wallet you haven't declared is critical immediately, so a hijacked endpoint is caught on the first check. Only someone who controls your domain can publish either record. Sellers that use a new address per request don't need to declare anything.
 
 ## `GET /v1/failures?url=<endpoint>` · free
 

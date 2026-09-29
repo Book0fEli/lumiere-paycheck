@@ -25,7 +25,7 @@ Lumière PayCheck answers those questions. It monitors every endpoint listed in 
 ## What it does
 
 - **Monitors every endpoint in the x402 Bazaar** (the badge above shows the live count, which grows as new endpoints are listed) every 30 minutes: price quote, payout wallet, uptime, response time.
-- **Flags hijack risk.** If an endpoint's payout wallet changes unexpectedly, its score is capped and agents are told to avoid it.
+- **Flags hijack risk, without punishing normal rotations.** Every payout-wallet change is checked against the seller's own wallet declaration, the seller's earlier wallets, and direct transfers between the old and new wallet. Confirmed rotations don't affect the grade; unexplained changes are `avoid`, then `caution` with human review. Sellers that use a new address per request are recognized automatically. [How it works](docs/api.md#payout-wallet-changes).
 - **Spending rules for agents.** Before paying, an agent asks "may I pay *this* endpoint *this* amount to *this* wallet?" and gets allow or deny with reasons.
 - **Plans for teams (new).** Scoped agent keys, daily/monthly spend limits, signed receipts your wallet verifies before paying, a replayable audit trail, and human review for anomalies. [Details](docs/subscriptions.md).
 - **Alerts.** Watch an endpoint and get signed webhook alerts when it breaks, changes wallet, or raises its price.
@@ -87,6 +87,8 @@ More in [`examples/`](examples): TypeScript, Python, curl, webhook and receipt v
 | `GET /v1/stats` | Free | Catalog size and verdict counts |
 | `GET /v1/operators?limit=` | Free | Sellers grouped by domain |
 | `GET /v1/failures?url=` | Free | Every failed check in the last 7 days: time, result, HTTP status, and whether it counts |
+| `GET /v1/wallet-changes?url=` | Free | Payout-wallet changes in the last 7 days and what the review found (declaration, seller history, on-chain link) |
+| `POST /v1/declaration` | Free | Sellers: have your declared payout wallets read now |
 | `GET /e?url=` | Free | Public page for one endpoint, including its failed-check log |
 | `GET /badge?url=` | Free | Embeddable SVG badge |
 | `GET /v1/report?url=` | $0.005 | Full report: score breakdown, current quote, wallet and price history |
@@ -128,8 +130,8 @@ The agent calls `POST /v1/authorize` before every payment and gets **allow**, **
 | Verdict | Meaning |
 |---|---|
 | `proceed` | Score ≥ 75, no wallet incidents, no failed deliveries |
-| `caution` | Score 40–74 |
-| `avoid` | Score < 40, an unexplained payout-wallet change, or a failed paid delivery |
+| `caution` | Score 40–74, or a payout-wallet change nobody could confirm after 24 hours |
+| `avoid` | Score < 40, an unexplained payout-wallet change (first 24 hours, reverted, or not a declared wallet), or a failed paid delivery |
 | `free` | Serves data without asking for payment |
 | `insufficient_data` | Fewer than 3 checks so far |
 
@@ -146,7 +148,7 @@ Deterministic and public. **No one can pay for a better grade.**
 - **Stability 25:** drops with payout-wallet changes and price increases
 - **Delivery 20:** share of paid test payments that returned what was advertised
 - Not yet paid-tested → scored on the other 80 points, rescaled, and labeled so
-- **Caps:** unexplained wallet change → max 40; failed paid delivery → max 50
+- **Caps:** unexplained wallet change → max 40 (unconfirmed after 24 hours → max 70); failed paid delivery → max 50. Confirmed rotations and per-request addresses don't count
 - A failed payment caused on our side never counts against a seller
 - **Fair to sellers:** only real problems count. Checks where our monitor is rate-limited or blocked by a firewall (Cloudflare, Vercel, AWS WAF, Akamai, DataDome, Imperva, Sucuri) are `blocked`; requests the endpoint rejects before quoting (400/405/415/422) are `mismatch`; failures caused by our own network are `monitor_error`. Quotes on payment networks we can't read yet (e.g. `nano:mainnet`) are `unsupported_network`. None of these count. Network errors and 502/503/504 are retried once. We send at most 2 requests at a time and about 1 per second to any one host, and pause a host that asks us to slow down
 - **Transparent:** every failed check is listed on the endpoint's public page and at `/v1/failures`, with timestamps. Our user agent is `lumiere-paycheck-prober/1.0 (+https://lumierepaycheck.org)` if you want to allowlist it
@@ -164,6 +166,8 @@ Every monitored endpoint has a public page and a badge that updates on its own:
 ```markdown
 [![Lumière PayCheck](https://lumierepaycheck.org/badge?url=YOUR_ENDPOINT_URL_ENCODED)](https://lumierepaycheck.org/e?url=YOUR_ENDPOINT_URL_ENCODED)
 ```
+
+**Declare your payout wallets** so a rotation is never mistaken for a hijack, and a hijack is caught on the first check: publish `{"payTo": ["0xYourWallet"]}` at `https://<your-host>/.well-known/paycheck.json` (or a DNS TXT record at `_paycheck.<your-host>`: `payto=0xYourWallet`), then `POST /v1/declaration` with your endpoint URL. [Details](docs/api.md#declaring-your-wallets-sellers).
 
 Think a grade is wrong? [Open a Grade dispute](../../issues/new/choose) with the endpoint URL. A bot replies within a minute with the endpoint's current score and failure log, and queues a paid re-test automatically.
 

@@ -30,6 +30,7 @@ Lumière PayCheck answers those questions. It monitors every endpoint listed in 
 - **Plans for teams (new).** Scoped agent keys, daily/monthly spend limits, signed receipts your wallet verifies before paying, a replayable audit trail, and human review for anomalies. [Details](docs/subscriptions.md).
 - **Alerts.** Watch an endpoint and get signed webhook alerts when it breaks, changes wallet, or raises its price.
 - **Paid delivery checks:** small real payments that confirm an endpoint returns what it advertises. A failure only counts if a re-test about two hours later fails too, and requests an endpoint rejects for missing input never count.
+- **Known-answer tests: values, not just shape.** Uptime and schema checks can pass while an API returns the wrong number. For endpoints with a knowable answer, the verifier pays for a call with a known correct result, or compares against an independent live source, and checks the value itself. Sellers can add their own tests. [How it works](docs/api.md#known-answer-tests).
 - **Real usage from on-chain data:** actual x402 payments (USDC on Base and Solana) into each endpoint's payout wallet over 30 days: volume, distinct buyers, typical and largest payment, trend, and how concentrated the buyers are, counting only payments submitted by recognized facilitators.
 - **Community outcome reports:** agents that pay through us report whether calls worked. Reports only point our re-tests at problems; grades change only when our own paid test confirms. On by default, easy to opt out.
 

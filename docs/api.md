@@ -11,8 +11,10 @@ Paid routes use [x402](https://x402.org) on Base mainnet (USDC). Request the rou
 ```json
 { "url": "https://api.example.com/x", "score": 100, "grade": "A", "verdict": "proceed",
   "delivery": "unverified", "probes": 96, "uptimePct": 100,
-  "payToMode": "fixed", "walletChanges": 0, "walletUnconfirmed": 0, "walletConfirmed": 0 }
+  "payToMode": "fixed", "walletChanges": 0, "walletUnconfirmed": 0, "walletConfirmed": 0, "valuesChecked": false }
 ```
+
+- `valuesChecked`: the latest successful paid check also passed [known-answer tests](#known-answer-tests): the values were right, not just the shape.
 
 - `payToMode`: `fixed`, or `per_request` for sellers that issue a new payout address on every request (their address changes are normal and never count).
 - `walletChanges`: payout-wallet incidents in 7 days (avoid). `walletUnconfirmed`: changes nobody could confirm after 24 hours (caution). `walletConfirmed`: changes confirmed as the seller's own rotation (no effect). See [Payout-wallet changes](#payout-wallet-changes).
@@ -105,6 +107,48 @@ curl -X POST https://lumierepaycheck.org/v1/declaration -H "content-type: applic
 ```
 
 Once declared: switching between declared wallets is a normal rotation (never flagged), and any wallet you haven't declared is critical immediately, so a hijacked endpoint is caught on the first check. Only someone who controls your domain can publish either record. Sellers that use a new address per request don't need to declare anything.
+
+## Known-answer tests
+
+A schema check confirms a paid response has the right *shape*. It can't tell that a price, a rate, or an entitlement is *wrong*. Known-answer tests close that gap: our verifier pays for a call whose correct result is known, or can be looked up independently, and checks the values.
+
+Each test can set its own request (`query`, `body`, `method`) and lists checks at JSON paths (`$.data.price`, `items[0].name`):
+
+| Check | Passes when the value… |
+|---|---|
+| `equals` | equals the given value exactly |
+| `oneOf` | is one of the given values |
+| `min` / `max` | is a number within the range |
+| `approx: { value, tolerancePct }` | is within ± tolerancePct % of value |
+| `matches` | matches the regular expression |
+| `nonEmpty` | isn't null, empty, or an empty list/object |
+| `reference: { url, path, tolerancePct }` | matches a value fetched live from an independent public source (https), within ± tolerancePct % |
+
+Rules that keep it fair: a wrong value counts like a wrong shape (the first failure is "suspect"; it only counts if the paid re-test ~2 hours later, running the same test, fails too). If a reference source is down, that check is skipped and never counts. Tests rotate across paid checks. When every value check passes, the endpoint page shows "values checked against known answers" and `/v1/score` returns `valuesChecked: true`.
+
+### Adding tests for your endpoints (sellers)
+
+Add `tests` to the same `/.well-known/paycheck.json` used for [declaring your wallets](#declaring-your-wallets-sellers), keyed by endpoint URL or path:
+
+```json
+{
+  "payTo": ["0xYourBaseWallet"],
+  "tests": {
+    "/v1/convert": [
+      { "name": "100 USD in cents",
+        "query": { "amount": "100", "unit": "cents" },
+        "expect": [ { "path": "$.result", "equals": 10000 }, { "path": "$.currency", "equals": "USD" } ] }
+    ],
+    "/v1/rate": [
+      { "name": "EUR rate vs ECB",
+        "query": { "base": "EUR", "quote": "USD" },
+        "expect": [ { "path": "$.rate", "reference": { "url": "https://api.frankfurter.app/latest?from=EUR&to=USD", "path": "$.rates.USD", "tolerancePct": 1 } } ] }
+    ]
+  }
+}
+```
+
+Seller-provided tests are labeled as such. Then `POST /v1/declaration` with an endpoint URL to have them read right away (the response says how many were found).
 
 ## `GET /v1/failures?url=<endpoint>` · free
 

@@ -64,6 +64,7 @@ Our fonts are hosted on our own server, so loading our pages doesn't contact any
 - Outcome reports: 90 days. Key recovery requests: 30 days. Closed enterprise inquiries: 1 year.
 - Workspaces, their administrators, and invoice records: until you ask us to delete them (we may keep invoice records longer where tax or accounting law requires).
 - Encrypted backups: the most recent 7 daily and 4 weekly copies; older ones are deleted automatically.
+- Response samples from our own paid test calls (when enabled): email addresses and phone numbers are removed before storage, only the latest 3 per endpoint are kept, and all are deleted after 7 days. Used only to write known-answer tests.
 - Monitoring and settlement data about public endpoints: see our [security page](https://lumierepaycheck.org/security) for the full schedule.
 
 ## Security

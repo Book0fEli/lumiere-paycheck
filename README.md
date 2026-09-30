@@ -8,7 +8,7 @@
 
 # Lumière PayCheck
 
-[![Live catalog size](https://lumierepaycheck.org/badge/catalog)](https://lumierepaycheck.org)
+[![Live catalog size](https://lumierepaycheck.org/badge/catalog)](https://lumierepaycheck.org) [![smithery badge](https://smithery.ai/badge/jahman-el/paycheck)](https://smithery.ai/servers/jahman-el/paycheck)
 
 **Check an x402 endpoint before your agent pays it.**
 

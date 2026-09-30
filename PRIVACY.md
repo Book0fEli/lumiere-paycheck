@@ -2,7 +2,7 @@
 
 Lumière PayCheck (lumierepaycheck.org) is operated by **Lumière LLC**, a Connecticut limited liability company. This policy explains what personal information we collect, why, how long we keep it, and who else handles it. Questions: **hello@lumierepaycheck.org**.
 
-Last updated: September 28, 2026 (key-less sign-in and usage billing added).
+Last updated: September 30, 2026 (free API keys and the weekly digest added).
 
 ## The short version
 
@@ -30,6 +30,8 @@ Last updated: September 28, 2026 (key-less sign-in and usage billing added).
 
 **If you're an enterprise client (including trials):** your company name, contact email, the names and email addresses of administrators you or we invite, your agreed terms, usage counts for billing, a billing email if you're on usage pricing, and records of invoices (number, amount, dates, paid status). Usage invoices are created and sent through Stripe. Access links we send are single-use, expire after 7 days, and are stored only in scrambled (hashed) form.
 
+**If you request a free API key:** your email address, which we use to send the key and, only if you tick the box, the weekly x402 trust digest. We store the key only as a hash, plus the date you signed up and whether you opted in to the digest. Every digest email has a one-click unsubscribe link; unsubscribing doesn't turn off your key.
+
 **If you contact us:** the enterprise form collects your name, work email, company, role, and message. Key recovery asks for your checkout email to find your subscription. Emails you send us are kept in our inbox.
 
 **Public data about endpoints and sellers:** we monitor public x402 endpoints (price quotes, payout wallets, uptime) and read public blockchain payments into their payout wallets. This concerns services and wallets, not visitors, but a payout wallet can belong to an individual seller.
@@ -49,7 +51,7 @@ We use these service providers, only for the purposes listed:
 - **Render** (hosting, United States): runs the service and stores its database. Like any host, its network processes request data, including IP addresses, to deliver and protect traffic; we don't store IP addresses ourselves.
 - **Stripe** (payments): card checkout, subscription billing, receipts, and monthly usage invoices for enterprise clients.
 - **Your identity platform** (GitHub, Google, Microsoft, or your own): if you use key-less sign-in, we fetch its public signing keys to verify your agents' tokens.
-- **Resend** (email delivery): sends key recovery and access links, inquiry confirmations, renewal reminders, and operator alerts.
+- **Resend** (email delivery): sends free API keys, the weekly digest to people who opted in, key recovery and access links, inquiry confirmations, renewal reminders, and operator alerts.
 - **Cloudflare** (DNS, email routing, and encrypted backup storage).
 - **Proton** (email inbox): receives mail sent to hello@lumierepaycheck.org.
 - **Blockchain data providers** (a public Base node and a Solana provider such as Helius): we ask them about public wallets and transactions, never about you.
@@ -61,6 +63,7 @@ Our fonts are hosted on our own server, so loading our pages doesn't contact any
 
 - Visitor totals: kept as daily totals; the daily secret is deleted after each day.
 - Payment decisions: 30 days on Builder, 1 year on Business.
+- Free API key emails and digest preferences: until you ask us to delete them. Unsubscribing from the digest takes effect immediately.
 - Outcome reports: 90 days. Key recovery requests: 30 days. Closed enterprise inquiries: 1 year.
 - Workspaces, their administrators, and invoice records: until you ask us to delete them (we may keep invoice records longer where tax or accounting law requires).
 - Encrypted backups: the most recent 7 daily and 4 weekly copies; older ones are deleted automatically.

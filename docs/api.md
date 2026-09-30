@@ -322,6 +322,15 @@ Remote server (Streamable HTTP): `https://lumierepaycheck.org/mcp`
 
 Free routes: 60 requests/minute per client, with `ratelimit-limit`, `ratelimit-remaining`, and `retry-after` headers. Over the limit → `429`. For volume, use `/v1/score/batch`.
 
+**Free API key:** 300 requests/minute instead of 60. Request one with your email and it's emailed to you (optionally with the weekly x402 trust digest), then send it in the `x-paycheck-key` header. Requesting a new key replaces the old one.
+
+```bash
+curl -X POST https://lumierepaycheck.org/v1/free-key -H 'content-type: application/json' -d '{"email":"you@company.com","digest":true}'
+curl -H "x-paycheck-key: pc_free_..." "https://lumierepaycheck.org/v1/score?url=<endpoint>"
+```
+
+Free responses include a short `forTeams` note about the paid plans (per-agent keys, spend limits, signed receipts, audit trail). Paid routes and `/v1/authorize` never include it.
+
 
 ## Workspace governance (owner and administrator keys)
 

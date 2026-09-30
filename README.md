@@ -101,7 +101,7 @@ More in [`examples/`](examples): TypeScript, Python, curl, webhook and receipt v
 | `POST /v1/plans/builder` · `/business` | $9 · $49 | Buy, renew, or upgrade a plan with USDC (x402). Card: [/subscribe](https://lumierepaycheck.org/subscribe) |
 | `POST /v1/authorize` | Plan | Authorize a payment with an agent key: allow / deny / review + signed receipt |
 
-Free routes allow 60 requests per minute per client. Paid routes use x402 on **Base mainnet** (USDC). Lookups for endpoints we don't monitor return 404 and are **never charged**. Full reference: [`docs/api.md`](docs/api.md).
+Free routes allow 60 requests per minute per client, or 300 with a [free API key](https://lumierepaycheck.org/free-key) sent in the `x-paycheck-key` header. Paid routes use x402 on **Base mainnet** (USDC). Lookups for endpoints we don't monitor return 404 and are **never charged**. Full reference: [`docs/api.md`](docs/api.md).
 
 ## Plans for teams running agents
 

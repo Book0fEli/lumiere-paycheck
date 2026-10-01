@@ -8,7 +8,7 @@
 
 # Lumière PayCheck
 
-[![Live catalog size](https://lumierepaycheck.org/badge/catalog)](https://lumierepaycheck.org) [![smithery badge](https://smithery.ai/badge/jahman-el/paycheck)](https://smithery.ai/servers/jahman-el/paycheck)
+[![Live catalog size](https://lumierepaycheck.org/badge/catalog)](https://lumierepaycheck.org) [![smithery badge](https://smithery.ai/badge/jahman-el/paycheck)](https://smithery.ai/servers/jahman-el/paycheck) [![M8ven Score](https://m8ven.ai/badge/mcp/book0feli-lumiere-paycheck-m57tub?variant=verified)](https://m8ven.ai/mcp/book0feli-lumiere-paycheck-m57tub)
 
 **Check an x402 endpoint before your agent pays it.**
 

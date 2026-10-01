@@ -30,7 +30,7 @@ Last updated: September 30, 2026 (free API keys and the weekly digest added).
 
 **If you're an enterprise client (including trials):** your company name, contact email, the names and email addresses of administrators you or we invite, your agreed terms, usage counts for billing, a billing email if you're on usage pricing, and records of invoices (number, amount, dates, paid status). Usage invoices are created and sent through Stripe. Access links we send are single-use, expire after 7 days, and are stored only in scrambled (hashed) form.
 
-**If you request a free API key:** your email address, which we use to send the key and, only if you tick the box, the weekly x402 trust digest. We store the key only as a hash, plus the date you signed up and whether you opted in to the digest. Every digest email has a one-click unsubscribe link; unsubscribing doesn't turn off your key.
+**If you request a free API key:** your email address, which we use to send the key and, only if you tick the box, the weekly x402 trust digest. We store the key only as a hash, plus the date you signed up, whether you opted in to the digest, and which days the key was used (so we can count returning users; not what you looked up). Every digest email has a one-click unsubscribe link; unsubscribing doesn't turn off your key.
 
 **If you contact us:** the enterprise form collects your name, work email, company, role, and message. Key recovery asks for your checkout email to find your subscription. Emails you send us are kept in our inbox.
 

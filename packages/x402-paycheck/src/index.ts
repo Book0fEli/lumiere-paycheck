@@ -24,6 +24,7 @@ export interface PayCheckRules {
   requireMonitored?: boolean;       // default true: endpoints PayCheck doesn't monitor are blocked
   pinPayTo?: boolean;               // default true: payTo must match the monitored wallet
   allowUnconfirmedWallet?: boolean; // default false
+  minOrganicShare?: number;         // optional 0-1: least share of the seller's volume from independent buyers
 }
 
 export interface PayCheckOptions {
@@ -50,8 +51,19 @@ export interface PayCheckDecision {
   reasons: string[];
   payment: PaymentToCheck;
   receipt?: string;                 // signed receipt (agentKey only)
+  buyers?: BuyerSummary;            // who is really behind the seller's buyers (free check only)
   decision?: string;                // decision id (agentKey only)
   raw?: unknown;
+}
+
+// "We count customers, not wallets": buyer wallets funded from one source count as one buyer.
+export interface BuyerSummary {
+  reviewed: boolean;                // false until the seller's buyers have been reviewed
+  independentBuyers30d?: number;
+  buyerWallets30d?: number;
+  organicShare?: number;            // 0-1 share of 30-day volume from independent buyers
+  estimated?: boolean;
+  flags?: string[];
 }
 
 export class PayCheckBlockedError extends Error {
@@ -67,7 +79,7 @@ export async function checkPayment(p: PaymentToCheck, opts: PayCheckOptions = {}
   if (!p.url || !p.payTo || !/^\d+$/.test(String(p.amount))) throw new Error("checkPayment needs url, payTo, and amount (atomic units)");
   const base = (opts.apiUrl ?? DEFAULT_API).replace(/\/$/, "");
   const f = opts.fetch ?? globalThis.fetch;
-  const headers: Record<string, string> = { "content-type": "application/json", "user-agent": "x402-paycheck/0.1" };
+  const headers: Record<string, string> = { "content-type": "application/json", "user-agent": "x402-paycheck/0.1.1" };
   let path = "/v1/check-payment", body: unknown;
   if (opts.agentKey) { path = "/v1/authorize"; headers.authorization = `Bearer ${opts.agentKey}`; body = { url: p.url, amount: String(p.amount), payTo: p.payTo, network: p.network }; }
   else { if (opts.apiKey) headers["x-paycheck-key"] = opts.apiKey; body = { url: p.url, amount: String(p.amount), payTo: p.payTo, network: p.network, ...(opts.rules ? { rules: opts.rules } : {}) }; }
@@ -81,7 +93,8 @@ export async function checkPayment(p: PaymentToCheck, opts: PayCheckOptions = {}
       const outcome = j.outcome === "allow" || j.outcome === "deny" || j.outcome === "review" ? j.outcome : "error";
       decision = { allow: outcome === "allow", outcome, reasons: Array.isArray(j.reasons) ? j.reasons : [], payment: p, receipt: j.receipt ?? undefined, decision: j.decision, raw: j };
     } else {
-      decision = { allow: j.allow === true, outcome: j.allow === true ? "allow" : "deny", reasons: Array.isArray(j.reasons) ? j.reasons : [], payment: p, raw: j };
+      decision = { allow: j.allow === true, outcome: j.allow === true ? "allow" : "deny", reasons: Array.isArray(j.reasons) ? j.reasons : [], payment: p,
+                   ...(j.buyers && typeof j.buyers === "object" ? { buyers: j.buyers as BuyerSummary } : {}), raw: j };
     }
   } catch (err) {
     decision = { allow: !!opts.failOpen, outcome: "error", reasons: [`couldn't reach PayCheck: ${(err as Error)?.message ?? err}${opts.failOpen ? " (failOpen: allowed)" : ""}`], payment: p };

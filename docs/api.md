@@ -39,14 +39,15 @@ Spending rules for agents. Send what you're about to pay; get allow/deny with re
     "requireVerified": false,
     "requireMonitored": true,
     "pinPayTo": true,
-    "allowUnconfirmedWallet": false
+    "allowUnconfirmedWallet": false,
+    "minOrganicShare": 0.5
   }
 }
 ```
 
-Amounts are atomic units (USDC has 6 decimals: `10000` = $0.01). Only `url` is required; rules have the defaults shown.
+Amounts are atomic units (USDC has 6 decimals: `10000` = $0.01). Only `url` is required; rules have the defaults shown, except `minOrganicShare`, which is off unless you send it (0-1: the least share of the seller's 30-day volume that must come from independent buyers; see `buyerIntegrity` below). For a seller whose buyers haven't been reviewed yet, `minOrganicShare` isn't applied and a note says so.
 
-**Denies when:** the verdict is `avoid`; the verdict is `caution` and `allowCaution` is false; there isn't enough data and `requireMonitored` is true; `requireVerified` is true and no paid test has passed; the payout wallet changed unexpectedly in the last 7 days; the payout wallet changed and couldn't be confirmed as the seller's (a *reviewable* reason: `reviewable: true`, unless `allowUnconfirmedWallet` is true); `payTo` isn't one of the wallets the seller declares; `amount` exceeds `maxAmount`; `amount` is higher than the monitored price; `payTo` differs from the monitored wallet (possible hijack; skipped for `per_request` sellers, with a note); the network differs.
+**Denies when:** the verdict is `avoid`; the verdict is `caution` and `allowCaution` is false; there isn't enough data and `requireMonitored` is true; `requireVerified` is true and no paid test has passed; the payout wallet changed unexpectedly in the last 7 days; the payout wallet changed and couldn't be confirmed as the seller's (a *reviewable* reason: `reviewable: true`, unless `allowUnconfirmedWallet` is true); `payTo` isn't one of the wallets the seller declares; `amount` exceeds `maxAmount`; `amount` is higher than the monitored price; `payTo` differs from the monitored wallet (possible hijack; skipped for `per_request` sellers, with a note); the network differs; less of the seller's volume comes from independent buyers than `minOrganicShare` (when sent).
 
 **Sanctions screening:** `payTo` (and the seller's monitored payout wallet) is screened against the U.S. Treasury OFAC SDN list, refreshed daily. A match is always denied, even for unmonitored endpoints, and is never sent to human review: `"payTo is on the U.S. Treasury OFAC sanctions list (SDN list dated 2026-10-02); paying it is prohibited"`. The response includes `"sanctions": { "screened": true, "sanctioned": false, "listDate": "2026-10-02" }` whenever `payTo` is sent. `/v1/authorize` applies the same screening.
 
@@ -199,6 +200,21 @@ Real x402 settlements into the endpoint's payout wallet over the last 30 days, f
            "medianUsd30d": 3.5, "maxUsd30d": 42, "trend7d": 0.95, "firstSeen": "2026-09-01",
            "facilitators": [{ "settler": "0x…", "share": 0.8 }], "attribution": "facilitator", "endpointsSharingWallet": 3 }
 ```
+
+#### `usage.buyerIntegrity`: independent buyers
+
+We count customers, not wallets. Anyone can create 1,000 wallets and pay themselves, so the biggest sellers' buyers are reviewed daily:
+
+```json
+"buyerIntegrity": { "reviewedAt": "2026-10-04T22:10:00Z", "walletsSampled": 40, "buyerWallets30d": 1450, "independentBuyers30d": 338, "estimated": true,
+                    "organicShare": 0.22, "coordinatedShare": 0.78, "selfFundedShare": 0, "largestClusterShare": 0.6,
+                    "signals": { "singleSellerShare": 0.9, "regularTimingShare": 0.7 },
+                    "flags": ["coordinated_wallets", "concentrated_buyers", "estimated"], "sharedOperatorSellers": 0, "method": "…" }
+```
+
+How it's measured: buyer wallets are grouped by the wallets that funded them with USDC (each buyer's first funder plus anyone else among its first 25 USDC transfers; dust under $0.01 is ignored). Wallets linked through the same source count as one buyer, so a seed wallet and a top-up wallet from one operator end up in one group. Payments from groups of 3+ wallets funded by one source, or by the seller's own wallet, aren't counted as organic (`organicShare`). Exchanges never group strangers: a wallet at exchange scale sending varied amounts, or a busy wallet sending varied amounts to buyers who also pay other sellers, never links buyers. A distribution wallet (the same amount to many fresh wallets, or wallets that then pay only this seller) does. `signals` are supporting evidence only (buyers that pay only this seller; machine-regular payment timing). `estimated: true` means the counts come from a sample of buyers. Flags: `coordinated_wallets` (coordinated groups carry 25%+ of volume), `self_funded` (10%+ from wallets the seller funded), `concentrated_buyers` (one group carries half the volume), `shared_operator` (the same funder's wallet groups pay several sellers), `estimated`, `partial_lookup`. Unreviewed sellers show `{ "reviewed": false }`.
+
+This never changes an endpoint's trust grade: the grade says whether the endpoint works and is safe to pay. The homepage leaderboard ranks sellers by volume from independent buyers.
 
 `attribution: "facilitator"` means only payments submitted by recognized x402 facilitators are counted (facilitators are recognized by behavior: settling for many sellers from many buyers). `"authorization-only"` is a less precise fallback used when submitter data isn't available yet.
 

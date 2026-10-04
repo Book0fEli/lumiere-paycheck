@@ -65,3 +65,12 @@ test("no resource URL: blocked unless wrapFetchWithPayCheck supplies the request
   assert.equal(await res.text(), "paid");
   assert.equal(JSON.parse(seen[0].init.body).url, "https://api.example.com/v1-endpoint");
 });
+
+test("minOrganicShare is sent and buyers come back", async () => {
+  const seen = [];
+  const buyers = { reviewed: true, independentBuyers30d: 21, buyerWallets30d: 90, organicShare: 0.22, estimated: false, flags: ["coordinated_wallets"] };
+  const d = await checkPayment(PAY, { fetch: fakePayCheck({ allow: false, reasons: ["only 22% of this seller's volume comes from independent buyers"], buyers }, 200, seen), rules: { minOrganicShare: 0.5 } });
+  assert.equal(JSON.parse(seen[0].init.body).rules.minOrganicShare, 0.5);
+  assert.equal(d.allow, false);
+  assert.deepEqual(d.buyers, buyers);
+});

@@ -8,6 +8,7 @@ Before your agent signs a payment, PayCheck checks:
 - **Price:** the quote isn't higher than the price PayCheck has been monitoring
 - **Payout wallet:** the wallet hasn't been swapped (a common sign of a hijacked endpoint)
 - **Sanctions:** the wallet isn't on the U.S. Treasury OFAC sanctions list
+- **Real buyers (optional):** with `minOrganicShare`, enough of the seller's volume comes from independent buyers, not wallets one operator created. We count customers, not wallets.
 
 If PayCheck says no, the payment is never created.
 
@@ -69,6 +70,7 @@ withPayCheck(client, {
 | `requireMonitored` | `true` | Block endpoints PayCheck doesn't monitor |
 | `pinPayTo` | `true` | The payout wallet must match the monitored one |
 | `allowUnconfirmedWallet` | `false` | Allow a recent wallet change nobody could confirm |
+| `minOrganicShare` | off | Only pay sellers where at least this share (0-1) of 30-day volume comes from independent buyers |
 
 ## Teams: spend limits and signed receipts
 
@@ -88,6 +90,7 @@ import { checkPayment } from "x402-paycheck";
 
 const d = await checkPayment({ url, amount: "10000", payTo: "0x...", network: "eip155:8453" });
 if (!d.allow) console.log(d.reasons);
+console.log(d.buyers); // { reviewed, independentBuyers30d, buyerWallets30d, organicShare, flags }
 ```
 
 ## Links

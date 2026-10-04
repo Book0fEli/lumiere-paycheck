@@ -224,7 +224,7 @@ Sellers grouped by domain, biggest first: endpoints listed, how many pass, best 
 
 Everything in `/v1/score` plus score breakdown, median latency, wallet and price event counts, delivery rate, the current quote (payTo, amount, network), the last 20 events, and the last 10 paid delivery checks.
 
-## `GET /v1/wallet-risk?address=<wallet>` · $0.01
+## `GET /v1/wallet-risk?address=<wallet>[&compare=<wallet>]` · $0.01
 
 Everything we know about one wallet before an agent sends it money. Works for any wallet, not only sellers: EVM addresses (`0x…`, any EVM network including Base) and Solana addresses.
 
@@ -233,6 +233,9 @@ Everything we know about one wallet before an agent sends it money. Works for an
 - **recentChanges**: payout-wallet switches to or from it in the last 14 days, and whether each was confirmed as the seller's own rotation
 - **declaredBy**: hosts that declare it in `/.well-known/paycheck.json`
 - **volume**: real x402 USDC volume into it over 30 days (payments and buyers), from the settlement index
+- **x402History**: whether the wallet receives x402 payments, and when we first saw one
+- **onchain**: first on-chain activity and age in days, transactions seen, **funder** (who sent the wallet its first funds) and **funderOfFunder** (one step back). Base via a block explorer, Solana via RPC; `available: false` when a source can't be reached
+- **flags**: `new_wallet` (under 2 days old), `no_history`, `not_a_known_seller_wallet`
 - **verdict**: `clear`, `caution` (a seller switched payouts to it recently without confirmation: possible hijack), or `block` (sanctioned), with plain-language `reasons`
 
 ```json
@@ -242,6 +245,10 @@ Everything we know about one wallet before an agent sends it money. Works for an
   "knownSeller": { "known": true, "hosts": [{ "host": "api.example.com", "firstSeen": "…", "lastSeen": "…", "current": true, "stableDays": 21 }] },
   "recentChanges": [], "declaredBy": [], "volume": { "usd30d": 130.4, "payments30d": 4546, "buyers30d": 83 }, "windowDays": 14 }
 ```
+
+**Compare two wallets:** add `&compare=<other wallet>` (for example the previous payout wallet) to get `comparison`: a `verdict` (`likely_same_owner`, `uncertain`, `no_link_found`), a same-owner `confidence` from 0 to 1, the `evidence` (direct transfers between the two, one funding the other directly or through an intermediate wallet, a shared first funder, the same seller using or declaring both), and `flags`. A shared first funder that's a busy wallet (an exchange or service) isn't counted as evidence.
+
+A brand-new wallet with no seller history comes back as `caution`, so an agent double-checks the address before paying.
 
 An invalid address answers `400` and is never charged. Addresses you check aren't stored.
 

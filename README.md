@@ -54,11 +54,26 @@ https://lumierepaycheck.org/mcp?plans=1
 
 Tools: `check_payment`, `check_endpoint`, `report_outcome`, `top_endpoints`, `catalog_stats`, `get_full_report`.
 
+### 2. Drop-in for the x402 fetch client (npm)
+
+```bash
+npm i x402-paycheck @x402/fetch
+```
+
+```ts
+import { x402Client, wrapFetchWithPayment } from "@x402/fetch";
+import { withPayCheck } from "x402-paycheck";
+
+const fetchWithPay = wrapFetchWithPayment(fetch, withPayCheck(new x402Client().register(/* your scheme */)));
+```
+
+Every payment is checked by PayCheck before it's signed; a "no" aborts it with the reason. Details: [packages/x402-paycheck](packages/x402-paycheck).
+
 Then add one rule to your agent's instructions:
 
 > Before paying any x402 endpoint, call the Lumière PayCheck `check_payment` tool with the endpoint URL, the amount, and the payTo wallet from its 402 quote. Only pay if `allow` is true. If it returns `allow: false`, tell me the reasons instead of paying. After paying, call `report_outcome` with the receipt and whether the response was usable.
 
-### 2. From code
+### 3. From code
 
 ```ts
 // Before paying any x402 endpoint, ask Lumière PayCheck.

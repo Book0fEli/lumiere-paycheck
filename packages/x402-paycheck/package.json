@@ -1,0 +1,24 @@
+{
+  "name": "x402-paycheck",
+  "version": "0.1.0",
+  "description": "Check every x402 payment with Lumière PayCheck before your agent pays: trust grade, price, payout-wallet hijack, and OFAC sanctions checks, plus team spend limits.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test test/index.test.mjs"
+  },
+  "keywords": ["x402", "ai-agents", "payments", "trust", "mcp", "usdc", "base", "solana", "spend-limits"],
+  "homepage": "https://lumierepaycheck.org",
+  "repository": { "type": "git", "url": "git+https://github.com/Book0fEli/lumiere-paycheck.git", "directory": "packages/x402-paycheck" },
+  "bugs": { "url": "https://github.com/Book0fEli/lumiere-paycheck/issues" },
+  "author": "Lumière LLC <hello@lumierepaycheck.org>",
+  "license": "MIT",
+  "engines": { "node": ">=18" },
+  "peerDependencies": { "@x402/fetch": ">=2.20.0" },
+  "peerDependenciesMeta": { "@x402/fetch": { "optional": true } },
+  "devDependencies": { "@x402/fetch": "^2.28.0", "typescript": "^5.6.0", "@types/node": "^22.0.0" }
+}

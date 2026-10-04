@@ -48,6 +48,8 @@ Amounts are atomic units (USDC has 6 decimals: `10000` = $0.01). Only `url` is r
 
 **Denies when:** the verdict is `avoid`; the verdict is `caution` and `allowCaution` is false; there isn't enough data and `requireMonitored` is true; `requireVerified` is true and no paid test has passed; the payout wallet changed unexpectedly in the last 7 days; the payout wallet changed and couldn't be confirmed as the seller's (a *reviewable* reason: `reviewable: true`, unless `allowUnconfirmedWallet` is true); `payTo` isn't one of the wallets the seller declares; `amount` exceeds `maxAmount`; `amount` is higher than the monitored price; `payTo` differs from the monitored wallet (possible hijack; skipped for `per_request` sellers, with a note); the network differs.
 
+**Sanctions screening:** `payTo` (and the seller's monitored payout wallet) is screened against the U.S. Treasury OFAC SDN list, refreshed daily. A match is always denied, even for unmonitored endpoints, and is never sent to human review: `"payTo is on the U.S. Treasury OFAC sanctions list (SDN list dated 2026-10-02); paying it is prohibited"`. The response includes `"sanctions": { "screened": true, "sanctioned": false, "listDate": "2026-10-02" }` whenever `payTo` is sent. `/v1/authorize` applies the same screening.
+
 **Response**
 
 ```json
@@ -222,6 +224,27 @@ Sellers grouped by domain, biggest first: endpoints listed, how many pass, best 
 
 Everything in `/v1/score` plus score breakdown, median latency, wallet and price event counts, delivery rate, the current quote (payTo, amount, network), the last 20 events, and the last 10 paid delivery checks.
 
+## `GET /v1/wallet-risk?address=<wallet>` · $0.01
+
+Everything we know about one wallet before an agent sends it money. Works for any wallet, not only sellers: EVM addresses (`0x…`, any EVM network including Base) and Solana addresses.
+
+- **sanctions**: OFAC SDN screening with the list date (`screened`, `sanctioned`, `listDate`)
+- **knownSeller**: whether it's the payout wallet of a monitored x402 seller, on which hosts, first/last seen, and how many days it's been stable
+- **recentChanges**: payout-wallet switches to or from it in the last 14 days, and whether each was confirmed as the seller's own rotation
+- **declaredBy**: hosts that declare it in `/.well-known/paycheck.json`
+- **volume**: real x402 USDC volume into it over 30 days (payments and buyers), from the settlement index
+- **verdict**: `clear`, `caution` (a seller switched payouts to it recently without confirmation: possible hijack), or `block` (sanctioned), with plain-language `reasons`
+
+```json
+{ "address": "0x…", "network": "evm", "verdict": "clear",
+  "reasons": ["payout wallet of 1 monitored seller (api.example.com), stable for 21 days"],
+  "sanctions": { "screened": true, "sanctioned": false, "listDate": "2026-10-02" },
+  "knownSeller": { "known": true, "hosts": [{ "host": "api.example.com", "firstSeen": "…", "lastSeen": "…", "current": true, "stableDays": 21 }] },
+  "recentChanges": [], "declaredBy": [], "volume": { "usd30d": 130.4, "payments30d": 4546, "buyers30d": 83 }, "windowDays": 14 }
+```
+
+An invalid address answers `400` and is never charged. Addresses you check aren't stored.
+
 ## `POST /v1/score/batch` · $0.01
 
 **Body:** `{ "urls": ["https://…", "https://…"] }` (1–100 URLs) → `{ "count": 2, "results": [ …score objects… ] }`. Unknown URLs come back with `"monitored": false`.
@@ -276,7 +299,7 @@ Keys go in `Authorization: Bearer <key>`. Owner keys start with `pc_owner_`, age
 
 ## Paying over x402: Base or Solana
 
-Paid routes (`GET /v1/report`, `POST /v1/score/batch`, `POST /v1/watch`, `POST /v1/plans/builder`, `POST /v1/plans/business`) answer `402 Payment Required` with two options at the same price: USDC on Base and USDC on Solana. Your x402 client pays with whichever network its wallet supports. On Solana, the facilitator pays the transaction fee, so the wallet only needs USDC.
+Paid routes (`GET /v1/report`, `GET /v1/wallet-risk`, `POST /v1/score/batch`, `POST /v1/watch`, `POST /v1/plans/builder`, `POST /v1/plans/business`) answer `402 Payment Required` with two options at the same price: USDC on Base and USDC on Solana. Your x402 client pays with whichever network its wallet supports. On Solana, the facilitator pays the transaction fee, so the wallet only needs USDC.
 
 ## `GET /v1/status` · free
 
@@ -308,6 +331,8 @@ After paying with a Lumière receipt, report whether the response was usable:
 ## MCP
 
 Remote server (Streamable HTTP): `https://lumierepaycheck.org/mcp`
+
+Same tools at `https://lumierepaycheck.org/mcp?plans=1`, whose instructions also explain the team plans and how an agent can buy one with USDC over x402 (`GET /v1/plans`, then `POST /v1/plans/builder` or `/v1/plans/business`).
 
 | Tool | Purpose |
 |---|---|

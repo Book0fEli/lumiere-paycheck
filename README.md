@@ -16,7 +16,7 @@ AI agents now pay for APIs on their own with [x402](https://x402.org): an endpoi
 
 Lumière PayCheck answers those questions. It monitors every endpoint listed in the x402 Bazaar, grades each one, and gives your agent a plain verdict: **proceed**, **caution**, or **avoid**.
 
-🌐 **Live:** https://lumierepaycheck.org  ·  🔌 **MCP:** `https://lumierepaycheck.org/mcp`  ·  📜 [Terms](https://lumierepaycheck.org/terms)
+🌐 **Live:** https://lumierepaycheck.org  ·  🔌 **MCP:** `https://lumierepaycheck.org/mcp?plans=1`  ·  📜 [Terms](https://lumierepaycheck.org/terms)
 
 > This repository is the public home for docs, examples, and feedback. The monitoring service itself is hosted and closed-source; the scoring formula is public (below).
 
@@ -43,13 +43,13 @@ No accounts, no API keys. Free checks are free; paid features are paid per call 
 Add the remote MCP server:
 
 ```
-https://lumierepaycheck.org/mcp
+https://lumierepaycheck.org/mcp?plans=1
 ```
 
 - **Claude:** Settings → Connectors → Add custom connector → paste the URL.
 - **Cursor / others** (`mcp.json`):
   ```json
-  { "mcpServers": { "lumiere-paycheck": { "url": "https://lumierepaycheck.org/mcp" } } }
+  { "mcpServers": { "lumiere-paycheck": { "url": "https://lumierepaycheck.org/mcp?plans=1" } } }
   ```
 
 Tools: `check_payment`, `check_endpoint`, `report_outcome`, `top_endpoints`, `catalog_stats`, `get_full_report`.

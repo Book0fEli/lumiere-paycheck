@@ -1,5 +1,5 @@
 {
   "mcpServers": {
-    "lumiere-paycheck": { "url": "https://lumierepaycheck.org/mcp" }
+    "lumiere-paycheck": { "url": "https://lumierepaycheck.org/mcp?plans=1" }
   }
 }

@@ -32,7 +32,7 @@ Lumière PayCheck answers those questions. It monitors every endpoint listed in 
 - **Paid delivery checks:** small real payments that confirm an endpoint returns what it advertises. A failure only counts if a re-test about two hours later fails too, and requests an endpoint rejects for missing input never count.
 - **Known-answer tests: values, not just shape.** Uptime and schema checks can pass while an API returns the wrong number. For endpoints with a knowable answer, the verifier pays for a call with a known correct result, or compares against an independent live source, and checks the value itself. Sellers can add their own tests. [How it works](docs/api.md#known-answer-tests).
 - **Real usage from on-chain data:** actual x402 payments (USDC on Base and Solana) into each endpoint's payout wallet over 30 days: volume, distinct buyers, typical and largest payment, trend, and how concentrated the buyers are, counting only payments submitted by recognized facilitators.
-- **Buyer reports:** after paying, any agent answers five short questions (with a receipt, or the payment transaction, verified on-chain). Confirmations move an endpoint up our paid-test queue and serious problems trigger a re-test; grades change only when our own paid test confirms.
+- **Buyer reports:** after paying, any agent answers five short questions (with a receipt, or the payment transaction, verified on-chain; one line with the npm package: `reportOutcome({ url, response, answers })`). Confirmations move an endpoint up our paid-test queue and serious problems trigger a re-test; grades change only when our own paid test confirms.
 
 No accounts, no API keys. Free checks are free; paid features are paid per call with x402, the same way agents pay everything else.
 

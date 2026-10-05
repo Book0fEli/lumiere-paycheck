@@ -93,6 +93,20 @@ if (!d.allow) console.log(d.reasons);
 console.log(d.buyers); // { reviewed, independentBuyers30d, buyerWallets30d, organicShare, flags }
 ```
 
+## After paying: report how it went
+
+One line after a paid call tells PayCheck whether you got what you paid for. It's free and optional, and no account is needed: the payment's transaction is read from the paid response and checked on-chain.
+
+```ts
+import { reportOutcome } from "x402-paycheck";
+
+const res = await fetchWithPay(url, init);
+await reportOutcome({ url, response: res, answers: { matchedListing: "yes", dataUsable: "yes", charged: "as_quoted", wouldPayAgain: true } });
+// -> { accepted: true, outcome: "delivered", ourTestQueued: true, verifiedOnChain: true }
+```
+
+`gotResponse` and the HTTP status are filled in from `response`. On a team plan, pass `receipt: client.lastPayCheckDecision?.receipt` instead. Confirmations from independent buyers move the endpoint up PayCheck's own paid-test queue; serious problems (nothing came back, charged more or twice) trigger a re-test. Reports never change a grade by themselves. `reportOutcome` never throws: if PayCheck can't be reached, it returns `{ accepted: false, reason }`.
+
 ## Links
 
 - Docs and API reference: https://github.com/Book0fEli/lumiere-paycheck

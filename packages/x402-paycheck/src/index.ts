@@ -12,10 +12,15 @@
 //
 // With a team plan, pass `agentKey` to use /v1/authorize instead: per-agent spend limits,
 // allowed sellers, human review, and a signed receipt for every allowed payment.
+//
+// After paying, reportOutcome({ url, response }) tells PayCheck whether you got what you paid for (free,
+// verified on-chain from the payment's transaction). Confirmations move the endpoint up PayCheck's own
+// paid-test queue; problems trigger a re-test. Reports never change a grade by themselves.
 
 import { AsyncLocalStorage } from "node:async_hooks";
 
 export const DEFAULT_API = "https://lumierepaycheck.org";
+const VERSION = "0.2.0";
 
 export interface PayCheckRules {
   maxAmount?: string | number;      // atomic units (USDC: 1000000 = $1)
@@ -79,7 +84,7 @@ export async function checkPayment(p: PaymentToCheck, opts: PayCheckOptions = {}
   if (!p.url || !p.payTo || !/^\d+$/.test(String(p.amount))) throw new Error("checkPayment needs url, payTo, and amount (atomic units)");
   const base = (opts.apiUrl ?? DEFAULT_API).replace(/\/$/, "");
   const f = opts.fetch ?? globalThis.fetch;
-  const headers: Record<string, string> = { "content-type": "application/json", "user-agent": "x402-paycheck/0.1.1" };
+  const headers: Record<string, string> = { "content-type": "application/json", "user-agent": `x402-paycheck/${VERSION}` };
   let path = "/v1/check-payment", body: unknown;
   if (opts.agentKey) { path = "/v1/authorize"; headers.authorization = `Bearer ${opts.agentKey}`; body = { url: p.url, amount: String(p.amount), payTo: p.payTo, network: p.network }; }
   else { if (opts.apiKey) headers["x-paycheck-key"] = opts.apiKey; body = { url: p.url, amount: String(p.amount), payTo: p.payTo, network: p.network, ...(opts.rules ? { rules: opts.rules } : {}) }; }
@@ -140,4 +145,70 @@ export function wrapFetchWithPayCheck(
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : (input as Request).url;
     return currentUrl.run(url, () => paying(input, init));
   };
+}
+
+// ---------------- after paying: report how it went ----------------
+
+export interface ReportAnswers {
+  gotResponse?: boolean;                         // did you get a response after paying?
+  matchedListing?: "yes" | "partly" | "no";      // did it match what the listing promised?
+  charged?: "as_quoted" | "more" | "twice";      // were you charged the quoted amount, once?
+  dataUsable?: "yes" | "unsure" | "no";          // did the data look real and usable?
+  wouldPayAgain?: boolean;
+}
+
+export interface OutcomeReport {
+  url: string;                      // the endpoint you paid
+  response?: Response;              // the paid response: tx, HTTP status and gotResponse are read from it
+  tx?: string;                      // payment transaction (Base hash or Solana signature), if not read from response
+  receipt?: string;                 // team plans: the receipt from the allow decision (instead of tx)
+  answers?: ReportAnswers;
+  outcome?: "delivered" | "problem"; // optional shortcut instead of answers
+  problems?: string[];              // short descriptions, e.g. "missing field price"
+  httpStatus?: number;
+}
+
+export interface ReportResult {
+  accepted: boolean;
+  reason?: string;                  // why it wasn't accepted (e.g. transaction not found yet)
+  outcome?: "delivered" | "problem";
+  ourTestQueued?: boolean;          // PayCheck's own paid test of this endpoint is queued
+  retestQueued?: boolean;
+  flagged?: string;                 // no_response, overcharged or double_charged
+  verifiedOnChain?: boolean;
+  raw?: unknown;
+}
+
+// Reads the settlement transaction from an x402 paid response (PAYMENT-RESPONSE / X-PAYMENT-RESPONSE header).
+export function paymentTxFrom(res: Response | undefined | null): string | undefined {
+  const h = res?.headers?.get("payment-response") ?? res?.headers?.get("x-payment-response");
+  if (!h) return undefined;
+  for (const decode of [(s: string) => Buffer.from(s, "base64").toString("utf8"), (s: string) => s]) {
+    try { const j = JSON.parse(decode(h.trim())); const tx = j?.transaction ?? j?.txHash ?? j?.tx; if (typeof tx === "string" && tx) return tx; } catch { /* try next */ }
+  }
+  return undefined;
+}
+
+// Tells PayCheck whether a paid call delivered. Free and optional. With `response`, the transaction, status
+// and whether a response came back are filled in for you; add `answers` for the rest. Never throws.
+export async function reportOutcome(r: OutcomeReport, opts: Pick<PayCheckOptions, "apiUrl" | "apiKey" | "timeoutMs" | "fetch"> = {}): Promise<ReportResult> {
+  const base = (opts.apiUrl ?? DEFAULT_API).replace(/\/$/, "");
+  const f = opts.fetch ?? globalThis.fetch;
+  const tx = r.tx ?? paymentTxFrom(r.response);
+  if (!r.receipt && !tx) return { accepted: false, reason: "no receipt and no payment transaction: pass receipt, tx, or the paid response (with its payment-response header)" };
+  const status = r.httpStatus ?? r.response?.status;
+  const answers: ReportAnswers = { ...(r.response ? { gotResponse: r.response.ok } : {}), ...(r.answers ?? {}) };
+  const body = { ...(r.receipt ? { receipt: r.receipt } : { url: r.url, tx }), ...(Object.keys(answers).length ? { answers } : {}),
+                 ...(r.outcome ? { outcome: r.outcome } : {}), ...(r.problems?.length ? { problems: r.problems } : {}), ...(status ? { httpStatus: status } : {}) };
+  const headers: Record<string, string> = { "content-type": "application/json", "user-agent": `x402-paycheck/${VERSION}` };
+  if (opts.apiKey) headers["x-paycheck-key"] = opts.apiKey;
+  try {
+    const res = await f(`${base}/v1/report`, { method: "POST", headers, body: JSON.stringify(body), signal: AbortSignal.timeout(opts.timeoutMs ?? 8000) });
+    const j = await res.json().catch(() => ({})) as any;
+    return { accepted: j.accepted === true, ...(j.reason ? { reason: j.reason } : {}), ...(j.outcome ? { outcome: j.outcome } : {}),
+             ...(typeof j.ourTestQueued === "boolean" ? { ourTestQueued: j.ourTestQueued } : {}), ...(typeof j.retestQueued === "boolean" ? { retestQueued: j.retestQueued } : {}),
+             ...(j.flagged ? { flagged: j.flagged } : {}), ...(j.verifiedOnChain ? { verifiedOnChain: true } : {}), raw: j };
+  } catch (err) {
+    return { accepted: false, reason: `couldn't reach PayCheck: ${(err as Error)?.message ?? err}` };
+  }
 }

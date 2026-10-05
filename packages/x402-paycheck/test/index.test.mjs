@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { checkPayment, withPayCheck, wrapFetchWithPayCheck } from "../dist/index.js";
+import { checkPayment, withPayCheck, wrapFetchWithPayCheck, reportOutcome, paymentTxFrom } from "../dist/index.js";
 
 const fakePayCheck = (answer, status = 200, seen = []) => async (url, init) => { seen.push({ url, init }); return new Response(JSON.stringify(answer), { status }); };
 const PAY = { url: "https://api.example.com/x", amount: "10000", payTo: "0xabc", network: "eip155:8453" };
@@ -73,4 +73,37 @@ test("minOrganicShare is sent and buyers come back", async () => {
   assert.equal(JSON.parse(seen[0].init.body).rules.minOrganicShare, 0.5);
   assert.equal(d.allow, false);
   assert.deepEqual(d.buyers, buyers);
+});
+
+const paidResponse = (status, tx) => new Response("{}", { status, headers: tx ? { "payment-response": Buffer.from(JSON.stringify({ success: true, transaction: tx, network: "eip155:8453" })).toString("base64") } : {} });
+
+test("paymentTxFrom reads the settlement transaction from the paid response", () => {
+  assert.equal(paymentTxFrom(paidResponse(200, "0xabc123")), "0xabc123");
+  assert.equal(paymentTxFrom(paidResponse(200)), undefined);
+});
+
+test("reportOutcome sends url + tx + answers, filling gotResponse and status from the response", async () => {
+  const seen = [];
+  const r = await reportOutcome({ url: "https://api.example.com/x", response: paidResponse(200, "0x" + "1".repeat(64)), answers: { matchedListing: "yes", dataUsable: "yes", charged: "as_quoted" } },
+    { fetch: fakePayCheck({ accepted: true, outcome: "delivered", ourTestQueued: true, verifiedOnChain: true }, 200, seen) });
+  assert.equal(r.accepted, true); assert.equal(r.ourTestQueued, true); assert.equal(r.verifiedOnChain, true);
+  assert.match(seen[0].url, /\/v1\/report$/);
+  const body = JSON.parse(seen[0].init.body);
+  assert.equal(body.tx, "0x" + "1".repeat(64)); assert.equal(body.url, "https://api.example.com/x");
+  assert.equal(body.answers.gotResponse, true); assert.equal(body.answers.matchedListing, "yes"); assert.equal(body.httpStatus, 200);
+});
+
+test("reportOutcome with a receipt (team plans) sends the receipt, not the tx", async () => {
+  const seen = [];
+  await reportOutcome({ url: "https://api.example.com/x", receipt: "r.s", outcome: "problem", problems: ["HTTP 500"] }, { fetch: fakePayCheck({ accepted: true }, 200, seen) });
+  const body = JSON.parse(seen[0].init.body);
+  assert.equal(body.receipt, "r.s"); assert.equal(body.tx, undefined); assert.equal(body.outcome, "problem");
+});
+
+test("reportOutcome never throws: no proof, a refusal, or PayCheck down", async () => {
+  assert.equal((await reportOutcome({ url: "https://api.example.com/x", response: paidResponse(200) })).accepted, false);
+  const refused = await reportOutcome({ url: "u", tx: "0x1" }, { fetch: fakePayCheck({ accepted: false, reason: "transaction not found yet" }, 400) });
+  assert.equal(refused.accepted, false); assert.match(refused.reason, /not found/);
+  const down = await reportOutcome({ url: "u", tx: "0x1" }, { fetch: async () => { throw new Error("offline"); } });
+  assert.equal(down.accepted, false); assert.match(down.reason, /offline/);
 });

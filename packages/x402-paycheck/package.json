@@ -1,6 +1,6 @@
 {
   "name": "x402-paycheck",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Check every x402 payment with Lumière PayCheck before your agent pays: trust grade, price, payout-wallet hijack, and OFAC sanctions checks, plus team spend limits.",
   "type": "module",
   "main": "./dist/index.js",

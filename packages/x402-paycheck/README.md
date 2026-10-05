@@ -83,6 +83,16 @@ const client = withPayCheck(baseClient, { agentKey: process.env.PAYCHECK_AGENT_K
 
 A decision sent to human review counts as "not allowed" until someone approves it.
 
+## Sellers that need their own sign-in
+
+Some endpoints need the seller's own account, API key or wallet signature on top of x402. PayCheck marks them `authRequired` (no money is taken when they refuse). If you have access, say so and strict rules (`allowCaution: false`, `requireVerified`) won't block them:
+
+```ts
+const client = withPayCheck(baseClient, { hasAccess: ["api.myseller.com"], rules: { requireVerified: true } });
+```
+
+Use `hasAccess: true` to mean every seller. On a team plan, listing a seller in an agent's allowed sellers counts as access too.
+
 ## Just the check
 
 ```ts

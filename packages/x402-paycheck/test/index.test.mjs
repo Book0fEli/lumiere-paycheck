@@ -107,3 +107,13 @@ test("reportOutcome never throws: no proof, a refusal, or PayCheck down", async 
   const down = await reportOutcome({ url: "u", tx: "0x1" }, { fetch: async () => { throw new Error("offline"); } });
   assert.equal(down.accepted, false); assert.match(down.reason, /offline/);
 });
+
+test("hasAccess is sent for listed sellers only, and authRequired comes back", async () => {
+  const seen = [];
+  const d = await checkPayment(PAY, { hasAccess: ["api.example.com"], fetch: fakePayCheck({ allow: true, reasons: [], authRequired: true }, 200, seen) });
+  assert.equal(JSON.parse(seen[0].init.body).hasAccess, true); assert.equal(d.authRequired, true);
+  await checkPayment(PAY, { hasAccess: ["other.example"], fetch: fakePayCheck({ allow: true }, 200, seen) });
+  assert.equal(JSON.parse(seen[1].init.body).hasAccess, undefined);
+  await checkPayment(PAY, { agentKey: "k", hasAccess: true, fetch: fakePayCheck({ outcome: "allow", reasons: [] }, 200, seen) });
+  assert.equal(JSON.parse(seen[2].init.body).hasAccess, true);
+});

@@ -20,7 +20,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
 export const DEFAULT_API = "https://lumierepaycheck.org";
-const VERSION = "0.2.0";
+const VERSION = "0.2.1";
 
 export interface PayCheckRules {
   maxAmount?: string | number;      // atomic units (USDC: 1000000 = $1)
@@ -41,6 +41,9 @@ export interface PayCheckOptions {
   timeoutMs?: number;               // default 8000
   onDecision?: (d: PayCheckDecision) => void | Promise<void>;
   fetch?: typeof globalThis.fetch;  // the fetch used to call PayCheck (default: globalThis.fetch)
+  // You have your own account / API key / sign-in with these sellers (true for all, or a list of hostnames).
+  // Endpoints that need the seller's own sign-in on top of x402 then aren't blocked by caution/verified rules.
+  hasAccess?: boolean | string[];
 }
 
 export interface PaymentToCheck {
@@ -58,6 +61,7 @@ export interface PayCheckDecision {
   receipt?: string;                 // signed receipt (agentKey only)
   buyers?: BuyerSummary;            // who is really behind the seller's buyers (free check only)
   decision?: string;                // decision id (agentKey only)
+  authRequired?: boolean;           // the seller needs its own sign-in on top of x402 (see hasAccess)
   raw?: unknown;
 }
 
@@ -85,9 +89,11 @@ export async function checkPayment(p: PaymentToCheck, opts: PayCheckOptions = {}
   const base = (opts.apiUrl ?? DEFAULT_API).replace(/\/$/, "");
   const f = opts.fetch ?? globalThis.fetch;
   const headers: Record<string, string> = { "content-type": "application/json", "user-agent": `x402-paycheck/${VERSION}` };
+  let host = ""; try { host = new URL(p.url).hostname.toLowerCase(); } catch { /* checked by PayCheck */ }
+  const hasAccess = opts.hasAccess === true || (Array.isArray(opts.hasAccess) && opts.hasAccess.some(h => h.toLowerCase() === host));
   let path = "/v1/check-payment", body: unknown;
-  if (opts.agentKey) { path = "/v1/authorize"; headers.authorization = `Bearer ${opts.agentKey}`; body = { url: p.url, amount: String(p.amount), payTo: p.payTo, network: p.network }; }
-  else { if (opts.apiKey) headers["x-paycheck-key"] = opts.apiKey; body = { url: p.url, amount: String(p.amount), payTo: p.payTo, network: p.network, ...(opts.rules ? { rules: opts.rules } : {}) }; }
+  if (opts.agentKey) { path = "/v1/authorize"; headers.authorization = `Bearer ${opts.agentKey}`; body = { url: p.url, amount: String(p.amount), payTo: p.payTo, network: p.network, ...(hasAccess ? { hasAccess: true } : {}) }; }
+  else { if (opts.apiKey) headers["x-paycheck-key"] = opts.apiKey; body = { url: p.url, amount: String(p.amount), payTo: p.payTo, network: p.network, ...(hasAccess ? { hasAccess: true } : {}), ...(opts.rules ? { rules: opts.rules } : {}) }; }
   let decision: PayCheckDecision;
   try {
     const res = await f(`${base}${path}`, { method: "POST", headers, body: JSON.stringify(body), signal: AbortSignal.timeout(opts.timeoutMs ?? 8000) });
@@ -96,10 +102,11 @@ export async function checkPayment(p: PaymentToCheck, opts: PayCheckOptions = {}
       decision = { allow: !!opts.failOpen, outcome: "error", reasons: [`PayCheck answered HTTP ${res.status}${j?.error ? `: ${j.error}` : ""}${opts.failOpen ? " (failOpen: allowed)" : ""}`], payment: p, raw: j };
     } else if (opts.agentKey) {
       const outcome = j.outcome === "allow" || j.outcome === "deny" || j.outcome === "review" ? j.outcome : "error";
-      decision = { allow: outcome === "allow", outcome, reasons: Array.isArray(j.reasons) ? j.reasons : [], payment: p, receipt: j.receipt ?? undefined, decision: j.decision, raw: j };
+      decision = { allow: outcome === "allow", outcome, reasons: Array.isArray(j.reasons) ? j.reasons : [], payment: p, receipt: j.receipt ?? undefined, decision: j.decision,
+                   ...(j.authRequired ? { authRequired: true } : {}), raw: j };
     } else {
       decision = { allow: j.allow === true, outcome: j.allow === true ? "allow" : "deny", reasons: Array.isArray(j.reasons) ? j.reasons : [], payment: p,
-                   ...(j.buyers && typeof j.buyers === "object" ? { buyers: j.buyers as BuyerSummary } : {}), raw: j };
+                   ...(j.buyers && typeof j.buyers === "object" ? { buyers: j.buyers as BuyerSummary } : {}), ...(j.authRequired ? { authRequired: true } : {}), raw: j };
     }
   } catch (err) {
     decision = { allow: !!opts.failOpen, outcome: "error", reasons: [`couldn't reach PayCheck: ${(err as Error)?.message ?? err}${opts.failOpen ? " (failOpen: allowed)" : ""}`], payment: p };

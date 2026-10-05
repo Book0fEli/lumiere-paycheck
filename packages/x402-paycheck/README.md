@@ -65,7 +65,7 @@ withPayCheck(client, {
 | Rule | Default | Meaning |
 |---|---|---|
 | `maxAmount` | none | Hard cap per payment, atomic units (USDC: `1000000` = $1) |
-| `allowCaution` | `true` | Allow endpoints graded "caution" |
+| `allowCaution` | `true` | Allow "caution" endpoints. Caution includes healthy endpoints not yet paid-tested, so `false` limits payments to endpoints a real paid test confirmed |
 | `requireVerified` | `false` | Only pay endpoints that passed a real paid delivery test |
 | `requireMonitored` | `true` | Block endpoints PayCheck doesn't monitor |
 | `pinPayTo` | `true` | The payout wallet must match the monitored one |

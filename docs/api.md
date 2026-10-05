@@ -10,11 +10,16 @@ Paid routes use [x402](https://x402.org) on Base mainnet (USDC). Request the rou
 
 ```json
 { "url": "https://api.example.com/x", "score": 100, "grade": "A", "verdict": "proceed",
-  "delivery": "unverified", "probes": 96, "uptimePct": 100,
-  "payToMode": "fixed", "walletChanges": 0, "walletUnconfirmed": 0, "walletConfirmed": 0, "valuesChecked": false }
+  "delivery": "verified", "probes": 96, "uptimePct": 100,
+  "payToMode": "fixed", "walletChanges": 0, "walletUnconfirmed": 0, "walletConfirmed": 0, "valuesChecked": true }
 ```
 
-- `valuesChecked`: the latest successful paid check also passed [known-answer tests](#known-answer-tests): the values were right, not just the shape.
+- `verdict`: `proceed` means a real paid test delivered and the endpoint is reliable. Healthy endpoints not yet paid-tested are `caution` ("delivery not yet confirmed"). `avoid`: a confirmed failed paid test, an unexplained payout-wallet change, or down more than half the time.
+- `grade`: **A** needs a passed paid test and 95%+ uptime. **B**: healthy but not yet paid-tested, delivered but reshaped vs its listing, or a value that looks wrong. **C**: under 80% uptime. **D**: a confirmed failed paid test. **F**: under 50% uptime or an unexplained wallet change. Uptime limits apply once there are 6 hours of checks.
+- `delivery`: `verified` (a paid test delivered; it stays valid until the price goes up or the payout wallet or network changes), `failing`, or `unverified`.
+- `valuesChecked`: the latest paid response also passed value checks: [known-answer tests](#known-answer-tests), or the automatic checks (it's about what we asked, its timestamp is recent, a token's USD price is near the public spot price).
+- `listing` (only when relevant): the paid response differs from the seller's own listing example or schema. `capped: true` when the data is reshaped (e.g. fields nested under `data`, grade capped at B); `warning` says where to read the fields; `sellerFix` says what the seller changes.
+- `values` (only when relevant): `{ "checked": true }`, or a `warning` when an automatic value check failed (grade capped at B, never avoid).
 
 - `payToMode`: `fixed`, or `per_request` for sellers that issue a new payout address on every request (their address changes are normal and never count).
 - `walletChanges`: payout-wallet incidents in 7 days (avoid). `walletUnconfirmed`: changes nobody could confirm after 24 hours (caution). `walletConfirmed`: changes confirmed as the seller's own rotation (no effect). See [Payout-wallet changes](#payout-wallet-changes).
@@ -59,7 +64,7 @@ Amounts are atomic units (USDC has 6 decimals: `10000` = $0.01). Only `url` is r
   "reasons": ["payTo differs from the monitored payout wallet (possible hijack)"],
   "monitored": true,
   "url": "https://api.example.com/x",
-  "verdict": "proceed", "grade": "A", "score": 100, "delivery": "unverified",
+  "verdict": "proceed", "grade": "A", "score": 100, "delivery": "verified",
   "payToMode": "fixed", "walletUnconfirmed": 0, "reviewable": false,
   "observed": { "payTo": "0x…", "amount": "10000", "network": "eip155:8453", "seenAt": "…" }
 }
@@ -229,7 +234,7 @@ The daily series behind `usage`: `{ url, payTo, usage, daily: [{ date, volumeUsd
 Example response (numbers change as the catalog grows):
 
 ```json
-{ "scoredAt": "…", "endpoints": 16894, "byVerdict": { "proceed": 16379, "caution": 113, "avoid": 295, "free": 26, "insufficient_data": 81 } }
+{ "scoredAt": "…", "endpoints": 36750, "byVerdict": { "proceed": 9516, "caution": 25226, "avoid": 490, "free": 33, "insufficient_data": 1510 } }
 ```
 
 ## `GET /v1/operators?limit=100` · free

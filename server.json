@@ -3,7 +3,7 @@
   "name": "io.github.Book0fEli/paycheck",
   "title": "Lumière PayCheck",
   "description": "Check any x402 endpoint before your AI agent pays it: trust grade, verdict, and hijack checks.",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "websiteUrl": "https://lumierepaycheck.org",
   "icons": [
     {

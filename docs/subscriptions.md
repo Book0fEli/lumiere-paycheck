@@ -80,6 +80,7 @@ this key, never your owner key.
 | `dailyLimit`, `monthlyLimit` | Caps on the total the agent can spend (UTC day / month) |
 | `expiresInDays` | The key stops working after this |
 | `requireVerified` | Only pay endpoints that passed a paid delivery check |
+| `allowCaution` | Allow "caution" endpoints (this includes healthy endpoints not yet paid-tested) |
 | `minOrganicShare` | 0-1, optional: only pay sellers where at least this share of 30-day volume comes from independent buyers (see `buyerIntegrity` in api.md) |
 | `reviewAbove` | *Business:* amounts above this go to human review |
 | `reviewNewWallets` | *Business:* the first payment to a new wallet goes to review (default on) |

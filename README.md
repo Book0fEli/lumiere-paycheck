@@ -159,7 +159,7 @@ The agent calls `POST /v1/authorize` before every payment and gets **allow**, **
 
 Deterministic and public. **No one can pay for a better grade.**
 
-- **Uptime 40:** how often the endpoint returns a valid payment quote over 7 days. **An A needs at least 95% uptime and a passed paid test**; otherwise the best grade is B
+- **Uptime 40:** how often the endpoint returns a valid payment quote over 7 days. **Uptime sets the ceiling:** an A needs at least 95% uptime and a passed paid test; under 95% the best grade is B, under 80% C, and under 50% F (avoid). These apply once there are 6 hours of checks
 - **Latency 15:** full points at ≤ 1 s median, zero at ≥ 5 s (checks run from one region, so distance isn't penalized). Checks that overlap a stall on our side don't count
 - **Stability 25:** drops with payout-wallet changes and price increases (each distinct higher price counts once, 8 points at most)
 - **Delivery 20:** share of paid test payments that returned what was advertised. Any 2xx counts as success; a 429, a firewall block or an async 202 after payment is neutral; empty result lists count as honest "no results"; a response fails only if it's an error status, empty when output is promised, not JSON when JSON is promised, or has none of the listing's fields (fields wrapped in `data`/`result`, or a list of the listed items, count). Endpoints failing a paid check are re-tested daily

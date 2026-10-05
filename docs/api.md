@@ -366,6 +366,11 @@ After paying an endpoint, report whether you got what you paid for. Two ways:
 - Endpoint pages and `check_endpoint` / `check_payment` (`buyerReports`) show totals and whether our test is queued, never who reported.
 - Workspaces can opt out of receipt reporting with `PATCH /v1/workspace { "reporting": false }` or the toggle on the account page.
 
+## Discovery
+
+- `GET /.well-known/x402`: x402 discovery manifest (`version`, `resources`, plus `x402Version`, `kind`, `description`, and a detailed `endpoints` list with prices and networks). Also at `/.well-known/x402.json`.
+- `GET /openapi.json`: OpenAPI 3.1 with `x-payment-info` on paid operations.
+
 ## MCP
 
 Remote server (Streamable HTTP): `https://lumierepaycheck.org/mcp`

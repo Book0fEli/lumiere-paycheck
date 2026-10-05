@@ -159,12 +159,12 @@ The agent calls `POST /v1/authorize` before every payment and gets **allow**, **
 
 Deterministic and public. **No one can pay for a better grade.**
 
-- **Uptime 40:** how often the endpoint returns a valid payment quote over 7 days
-- **Latency 15:** full points at ≤ 500 ms median, zero at ≥ 3,000 ms
-- **Stability 25:** drops with payout-wallet changes and price increases
-- **Delivery 20:** share of paid test payments that returned what was advertised
-- Not yet paid-tested → scored on the other 80 points, rescaled, and labeled so
-- **Caps:** unexplained wallet change → max 40 (unconfirmed after 24 hours → max 70); failed paid delivery → max 50. Confirmed rotations and per-request addresses don't count
+- **Uptime 40:** how often the endpoint returns a valid payment quote over 7 days. **An A needs at least 95% uptime and a passed paid test**; otherwise the best grade is B
+- **Latency 15:** full points at ≤ 1 s median, zero at ≥ 5 s (checks run from one region, so distance isn't penalized). Checks that overlap a stall on our side don't count
+- **Stability 25:** drops with payout-wallet changes and price increases (each distinct higher price counts once, 8 points at most)
+- **Delivery 20:** share of paid test payments that returned what was advertised. Any 2xx counts as success; a 429, a firewall block or an async 202 after payment is neutral; empty result lists count as honest "no results"; a response fails only if it's an error status, empty when output is promised, not JSON when JSON is promised, or has none of the listing's fields (fields wrapped in `data`/`result`, or a list of the listed items, count). Endpoints failing a paid check are re-tested daily
+- Not yet paid-tested → scored on the other 80 points, rescaled, labeled so, and capped at B: **an A means a real paid test delivered**
+- **Caps:** unexplained wallet change → max 40 (unconfirmed after 24 hours → max 70); failed paid delivery → max 50; delivers but reshaped vs its own listing (fields nested elsewhere, a list where it shows one item, most example fields missing) → max 85 (B), with a note telling agents where to read the fields; minor gaps (an optional field, a content-type label) get a note only. Confirmed rotations and per-request addresses don't count
 - A failed payment caused on our side never counts against a seller
 - **Fair to sellers:** only real problems count. Checks where our monitor is rate-limited or blocked by a firewall (Cloudflare, Vercel, AWS WAF, Akamai, DataDome, Imperva, Sucuri) are `blocked`; requests the endpoint rejects before quoting (400/405/415/422) are `mismatch`; failures caused by our own network are `monitor_error`. Quotes on payment networks we can't read yet (e.g. `nano:mainnet`) are `unsupported_network`. None of these count. Network errors and 502/503/504 are retried once. We send at most 2 requests at a time and about 1 per second to any one host, and pause a host that asks us to slow down
 - **Transparent:** every failed check is listed on the endpoint's public page and at `/v1/failures`, with timestamps. Our user agent is `lumiere-paycheck-prober/1.0 (+https://lumierepaycheck.org)` if you want to allowlist it

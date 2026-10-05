@@ -341,20 +341,30 @@ Daily usage totals for the last 30 days: `{ days: [{ date, visitors, pageviews, 
 
 Request a paid re-test of an endpoint's grade: `{ "url": "https://api.example.com/x" }`. Once per endpoint per 24 hours. Returns the current score and links to the endpoint page and failure log. Opening a **Grade dispute** issue in this repo calls this for you and posts the result automatically.
 
-## `POST /v1/report` · free (subscribers' receipts)
+## `POST /v1/report` · free (anyone who paid)
 
-After paying with a Lumière receipt, report whether the response was usable:
+After paying an endpoint, report whether you got what you paid for. Two ways:
 
 ```json
-{ "receipt": "eyJ2Ijox…", "outcome": "problem", "problems": ["missing field price"], "httpStatus": 200, "tx": "0x…" }
+{ "receipt": "eyJ2Ijox…", "answers": { "gotResponse": true, "matchedListing": "yes", "charged": "as_quoted", "dataUsable": "yes", "wouldPayAgain": true } }
 ```
 
-→ `{ "accepted": true, "retestQueued": false, "thanks": "…" }`
+```json
+{ "url": "https://api.example.com/x", "tx": "0x…", "answers": { "gotResponse": false } }
+```
 
-- `outcome`: `delivered` or `problem`. Reports must arrive within 24 hours of the decision, one per payment.
-- **Reports are tips, not verdicts.** When several independent customers report a problem, our verifier re-tests the endpoint with a real payment, and the grade changes only if that test confirms it. Accounts under a day old can't trigger a re-test on their own, and coordinated reports are ignored.
-- Endpoint pages show totals ("Buyer reports"), never who reported.
-- Opt out for a whole workspace with `PATCH /v1/workspace { "reporting": false }` or the toggle on the account page.
+- **With a receipt** (paid and trial plans): the receipt from an allow decision, within 24 hours.
+- **With the payment `tx`** (anyone, no account): a Base transaction hash or Solana signature plus the endpoint `url`. We find the USDC payment to that endpoint's payout wallet on-chain, within 24 hours, before counting it. The paying wallet is the reporter.
+- **answers** (any subset): `gotResponse` (true/false), `matchedListing` (`yes`/`partly`/`no`), `charged` (`as_quoted`/`more`/`twice`), `dataUsable` (`yes`/`unsure`/`no`), `wouldPayAgain` (true/false). `outcome: "delivered" | "problem"` still works as a shortcut; `problems`, `httpStatus` optional.
+
+→ `{ "accepted": true, "outcome": "delivered", "retestQueued": false, "ourTestQueued": true, "verifiedOnChain": true, "paid": "10000", "thanks": "…" }`
+
+- **Reports are tips, not verdicts.** Only our own paid test changes a grade.
+  - Clean confirmations from independent buyers move the endpoint to the front of our paid-test queue (unless it already passed our test).
+  - Problem reports from several independent buyers trigger a re-test. So does one serious report (nothing came back, charged more, charged twice) from an established buyer, or an overcharge we can see on-chain (`flagged`, `overcharge`).
+- **Abuse limits:** one report per payment, and one per wallet per endpoint per day. The seller's own wallet (or a wallet it funded) can't report on itself. Accounts under a day old and wallets without payment history count half and can't trigger a test alone; wallets funded from the same source count as one voice; coordinated reports are ignored.
+- Endpoint pages and `check_endpoint` / `check_payment` (`buyerReports`) show totals and whether our test is queued, never who reported.
+- Workspaces can opt out of receipt reporting with `PATCH /v1/workspace { "reporting": false }` or the toggle on the account page.
 
 ## MCP
 
@@ -369,7 +379,7 @@ Same tools at `https://lumierepaycheck.org/mcp?plans=1`, whose instructions also
 | `top_endpoints` | Most trustworthy endpoints |
 | `catalog_stats` | Catalog size and verdict counts |
 | `get_full_report` | How to buy the full report |
-| `report_outcome` | After paying with a receipt, report whether the response was usable |
+| `report_outcome` | After paying, report how it went (receipt, or url + payment tx; short answers) |
 
 ## Rate limits
 

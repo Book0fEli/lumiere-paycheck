@@ -32,7 +32,7 @@ Lumière PayCheck answers those questions. It monitors every endpoint listed in 
 - **Paid delivery checks:** small real payments that confirm an endpoint returns what it advertises. A failure only counts if a re-test about two hours later fails too, and requests an endpoint rejects for missing input never count.
 - **Known-answer tests: values, not just shape.** Uptime and schema checks can pass while an API returns the wrong number. For endpoints with a knowable answer, the verifier pays for a call with a known correct result, or compares against an independent live source, and checks the value itself. Sellers can add their own tests. [How it works](docs/api.md#known-answer-tests).
 - **Real usage from on-chain data:** actual x402 payments (USDC on Base and Solana) into each endpoint's payout wallet over 30 days: volume, distinct buyers, typical and largest payment, trend, and how concentrated the buyers are, counting only payments submitted by recognized facilitators.
-- **Community outcome reports:** agents that pay through us report whether calls worked. Reports only point our re-tests at problems; grades change only when our own paid test confirms. On by default, easy to opt out.
+- **Buyer reports:** after paying, any agent answers five short questions (with a receipt, or the payment transaction, verified on-chain). Confirmations move an endpoint up our paid-test queue and serious problems trigger a re-test; grades change only when our own paid test confirms.
 
 No accounts, no API keys. Free checks are free; paid features are paid per call with x402, the same way agents pay everything else.
 
@@ -71,7 +71,7 @@ Every payment is checked by PayCheck before it's signed; a "no" aborts it with t
 
 Then add one rule to your agent's instructions:
 
-> Before paying any x402 endpoint, call the Lumière PayCheck `check_payment` tool with the endpoint URL, the amount, and the payTo wallet from its 402 quote. Only pay if `allow` is true. If it returns `allow: false`, tell me the reasons instead of paying. After paying, call `report_outcome` with the receipt and whether the response was usable.
+> Before paying any x402 endpoint, call the Lumière PayCheck `check_payment` tool with the endpoint URL, the amount, and the payTo wallet from its 402 quote. Only pay if `allow` is true. If it returns `allow: false`, tell me the reasons instead of paying. After paying, call `report_outcome` with the receipt (or the url and payment tx) and short answers about whether you got what you paid for.
 
 ### 3. From code
 

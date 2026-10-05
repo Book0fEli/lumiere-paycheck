@@ -32,6 +32,8 @@ Requests that fail validation are never charged.
 
 ## 1. Subscribe
 
+**Free trial first (optional):** [lumierepaycheck.org/trial](https://lumierepaycheck.org/trial) gives you Business free for 30 days with just an email, no card, one per email. Every trial email has a private "continue" link: subscribing through it keeps the same workspace, owner key, agent keys and history. If you don't continue, nothing breaks: `/v1/authorize` keeps answering with the free allow/deny check (`trialEnded: true`, no receipt) and the team features pause.
+
 **With a card:** go to [lumierepaycheck.org/subscribe](https://lumierepaycheck.org/subscribe), pick a plan, and pay on Stripe's
 secure checkout. You'll come back to a page showing your **owner key once**. Your account
 is created automatically and renews every month. If a renewal fails, Stripe retries;

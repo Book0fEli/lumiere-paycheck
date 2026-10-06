@@ -1,0 +1,24 @@
+name: Seller-funded tests
+on:
+  issues:
+    types: [opened]
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+permissions:
+  issues: write
+  contents: read
+concurrency:
+  group: seller-test
+  cancel-in-progress: false
+jobs:
+  bot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const bot = require('./.github/scripts/seller-test.js');
+            const result = context.eventName === 'issues' ? await bot.onOpened({ github, context }) : await bot.sweep({ github, context });
+            core.info(`seller test: ${result}`);

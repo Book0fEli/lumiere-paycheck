@@ -12,6 +12,8 @@ function endpointFrom(body) {
 
 module.exports = async ({ github, context, fetchImpl = fetch }) => {
   const issue = context.payload.issue;
+  // Seller-funded test requests share the "Endpoint URL" field; seller-test.js handles those.
+  if (/^seller test/i.test(issue.title || "") || (issue.labels || []).some(l => (l.name || l) === "seller-test")) return "seller test";
   const isDispute = /^grade dispute/i.test(issue.title || "") || /###\s*Endpoint URL/i.test(issue.body || "");
   if (!isDispute) return "not a dispute";
   const say = (body) => github.rest.issues.createComment({ ...context.repo, issue_number: issue.number, body });

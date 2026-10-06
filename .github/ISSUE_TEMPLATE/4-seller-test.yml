@@ -1,0 +1,31 @@
+name: Seller-funded test (endpoints above $0.05)
+description: Verify your own endpoint when it costs more per call than our tester pays on its own. You fund one test at your own price; the money goes back to your payout wallet.
+title: "Seller test: <endpoint>"
+labels: ["seller-test"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Our tester pays endpoints up to $0.05 per call on its own. Above that, an endpoint stays **C (unconfirmed)** until a paid test confirms it delivers.
+        Here's how a funded test works:
+        1. When you submit, a bot replies with your endpoint's price and a payment link (x402, USDC on Base).
+        2. You pay that price once. Our tester then pays your endpoint the same amount, so the money lands back in your payout wallet.
+        3. The test runs at a random time within about 3 hours. The bot posts the result here and closes the issue.
+
+        **The grade comes only from what the test finds.** A funded test can't buy a grade, and the endpoint page says the test was funded by the seller.
+        If the test can't run within 3 days (for example, the endpoint is down), the funding is refunded to the wallet that paid it.
+  - type: input
+    id: endpoint
+    attributes:
+      label: Endpoint URL
+      description: The full x402 endpoint, including the path, exactly as listed.
+      placeholder: https://api.example.com/v1/data
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I understand the test result decides the grade, whether it passes or fails.
+          required: true

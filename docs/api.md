@@ -343,6 +343,16 @@ Daily usage totals for the last 30 days: `{ days: [{ date, visitors, pageviews, 
 
 Request a paid re-test of an endpoint's grade: `{ "url": "https://api.example.com/x" }`. Once per endpoint per 24 hours. Returns the current score and links to the endpoint page and failure log. Opening a **Grade dispute** issue in this repo calls this for you and posts the result automatically.
 
+## Seller-funded tests (endpoints above $0.05)
+
+Our tester pays up to $0.05 per call on its own. A pricier endpoint stays C (unconfirmed) until someone funds one paid test of it, normally its seller. The money goes in a circle: you pay us the endpoint's own price, our tester pays the endpoint that same price (back to its payout wallet), and the grade comes only from what the test finds. The endpoint page notes the test was seller-funded.
+
+- `GET /v1/seller-test/quote?url=<endpoint>` · free: `{ eligible, price, payUrl }`, or `{ eligible: false, reason }` (not monitored, within the automatic budget, already queued, or cooldown).
+- `POST /v1/seller-test?url=<endpoint>&issue=<n>` · x402, priced at the endpoint's current quote (USDC on Base): funds one test. Returns `201` with the test's `id` and `statusUrl`. Ineligible requests are refused before settlement and never charged.
+- `GET /v1/seller-test/<id>` and `GET /v1/seller-tests?issue=<n>|url=<endpoint>` · free: status (`queued`, `done`, `refund_due`, `refunded`), outcome and details.
+
+The test runs at a random time 20 minutes to 3 hours after funding, capped at the funded amount and outside our daily test budget. One per endpoint per 30 days (sooner after a price or payout-wallet change, or within 24 hours of a first failure). If it can't run within 3 days, the funding is refunded to the wallet that paid. Opening a **Seller test** issue in this repo walks you through it and posts the result automatically.
+
 ## `POST /v1/report` · free (anyone who paid)
 
 After paying an endpoint, report whether you got what you paid for. Two ways:

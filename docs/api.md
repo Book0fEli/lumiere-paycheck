@@ -175,7 +175,15 @@ If an endpoint needs a header or input its listing doesn't show, add `requests` 
 }
 ```
 
-Each entry can set `method`, `headers` (up to 10), `query` and a JSON `body`. Paid tests send it, and deliveries using it are labeled "with the seller's declared test request". `Authorization`, `Cookie` and payment headers are ignored: account sign-ins can't be declared and stay C ("needs its own sign-in"). `POST /v1/declaration` reads it right away (`testRequests` in the response).
+Each entry can set `method`, `headers` (up to 10), `query` and a JSON `body`. Paid tests send it, and deliveries using it are labeled "with the seller's declared test request". Credential-like headers (`Authorization`, `Cookie`, or names containing key, token, secret, session, auth or signature) are ignored: use a [sign-in test](#sign-in-tests-sellers) instead. `POST /v1/declaration` reads it right away (`testRequests` in the response).
+
+### Sign-in tests (sellers)
+
+For endpoints that need their own sign-in on top of x402. Results show how the test got in as `testedWith` in `/v1/score` (`wallet_sign_in`, `seller_account`, or `declared_request`); it never changes the grade on its own.
+
+- **SIWX (x402 `sign-in-with-x` extension):** detected automatically; the paid request carries a `SIGN-IN-WITH-X` proof from the paying wallet.
+- **Custom EIP-191 headers:** `"signIn"` in `paycheck.json`, keyed by URL, path or `"*"`: `{ "type": "eip191", "message": "{method} {path} {timestamp}", "headers": { "X-Signature": "{signature}", "X-Address": "{address}" } }`. The message must contain `{timestamp}`, `{timestampMs}`, `{isoTime}` or `{nonce}`; personal_sign only.
+- **Private test account:** `POST /v1/test-account` `{"url", "headers", "scope"?: "host"}` → `201 {id, claimCode, next}`. Publish `"testAccount": "<claimCode>"` in `paycheck.json` and `POST /v1/declaration` to activate. `GET /v1/test-account/<id>` shows status (never the headers). Removing the code revokes it and deletes the stored headers.
 
 ## `GET /v1/failures?url=<endpoint>` · free
 

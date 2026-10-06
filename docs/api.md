@@ -15,10 +15,12 @@ Paid routes use [x402](https://x402.org) on Base mainnet (USDC). Request the rou
 ```
 
 - `verdict`: `proceed` means a real paid test delivered and the endpoint is reliable. Healthy endpoints not yet paid-tested are `caution` ("delivery not yet confirmed"). `avoid`: a confirmed failed paid test, an unexplained payout-wallet change, or down more than half the time.
-- `grade`: **A** needs a passed paid test and 95%+ uptime. **B**: healthy but not yet paid-tested, delivered but reshaped vs its listing, or a value that looks wrong. **C**: under 80% uptime. **D**: a confirmed failed paid test. **F**: under 50% uptime or an unexplained wallet change. Uptime limits apply once there are 6 hours of checks.
+- `grade`: **A**: a passed paid test, clean, 95%+ uptime. **B**: delivered with a caveat (reshaped vs its listing, a value warning, or 80–95% uptime). **C**: not confirmed (not paid-tested yet, needs its own sign-in, refused our test wallet, customers only, or 50–80% uptime). **D**: doesn't work as listed, no money lost (an error after payment with no charge, the listing's example input gets "not found", or it wants a header or input the listing doesn't document). **F**: costs money or unsafe (took payment and failed, an unexplained wallet change, or under 50% uptime). Uptime limits apply once there are 6 hours of checks.
 - `delivery`: `verified` (a paid test delivered; it stays valid until the price goes up or the payout wallet or network changes), `failing`, or `unverified`.
 - `valuesChecked`: the latest paid response also passed value checks: [known-answer tests](#known-answer-tests), or the automatic checks (it's about what we asked, its timestamp is recent, a token's USD price is near the public spot price).
 - `listing` (only when relevant): the paid response differs from the seller's own listing example or schema. `capped: true` when the data is reshaped (e.g. fields nested under `data`, grade capped at B); `warning` says where to read the fields; `sellerFix` says what the seller changes.
+- `auth` (only when relevant): the latest paid test was refused with 401/403 and no money taken. `note` says why: its own sign-in, our test wallet refused, or customers only (all C). Agents with access send `hasAccess: true` to check-payment.
+- `exampleInput` / `requiredInput` (only when relevant): the listing's example input got "not found", or the endpoint wants a header or input its listing doesn't document (both D, no money taken).
 - `values` (only when relevant): `{ "checked": true }`, or a `warning` when an automatic value check failed (grade capped at B, never avoid).
 
 - `payToMode`: `fixed`, or `per_request` for sellers that issue a new payout address on every request (their address changes are normal and never count).
@@ -159,6 +161,21 @@ Add `tests` to the same `/.well-known/paycheck.json` used for [declaring your wa
 ```
 
 Seller-provided tests are labeled as such. Then `POST /v1/declaration` with an endpoint URL to have them read right away (the response says how many were found).
+
+### Declaring a test request (sellers)
+
+If an endpoint needs a header or input its listing doesn't show, add `requests` to the same file, keyed by endpoint URL, path, or `"*"` (every endpoint on the host):
+
+```json
+{
+  "requests": {
+    "/v1/jobs": { "headers": { "X-Agent-Id": "lumiere-paycheck-test" } },
+    "*": { "query": { "region": "us" } }
+  }
+}
+```
+
+Each entry can set `method`, `headers` (up to 10), `query` and a JSON `body`. Paid tests send it, and deliveries using it are labeled "with the seller's declared test request". `Authorization`, `Cookie` and payment headers are ignored: account sign-ins can't be declared and stay C ("needs its own sign-in"). `POST /v1/declaration` reads it right away (`testRequests` in the response).
 
 ## `GET /v1/failures?url=<endpoint>` · free
 

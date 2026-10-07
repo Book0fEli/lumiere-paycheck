@@ -1,6 +1,6 @@
 {
   "name": "lumiere-paycheck-mcp",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Lumière PayCheck MCP server (stdio): check x402 endpoints and payments before an agent pays.",
   "type": "module",
   "bin": { "lumiere-paycheck-mcp": "server.js" },

@@ -1,8 +1,10 @@
 # Lumière PayCheck MCP server (stdio)
 
-The same six tools as the hosted server at `https://lumierepaycheck.org/mcp`, run locally over stdio. It answers with data from the public Lumière PayCheck API. Free, no API key.
+The same tools, prompts and resources as the hosted server at `https://lumierepaycheck.org/mcp`, run locally over stdio. It answers with data from the public Lumière PayCheck API. Free, no API key.
 
 Tools: `check_payment`, `check_endpoint`, `report_outcome`, `top_endpoints`, `catalog_stats`, `get_full_report`.
+
+Prompts: `check_before_paying`, `safe_endpoints`, `agent_payment_rule`. Resources: `paycheck://guide`, `paycheck://stats`.
 
 ## Run
 

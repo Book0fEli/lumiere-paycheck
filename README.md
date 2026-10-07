@@ -54,6 +54,8 @@ https://lumierepaycheck.org/mcp?plans=1
 
 Tools: `check_payment`, `check_endpoint`, `report_outcome`, `top_endpoints`, `catalog_stats`, `get_full_report`.
 
+Prefer a local stdio server? [`packages/mcp-server`](packages/mcp-server) runs the same tools on your machine (`node server.js`, or the repo's `Dockerfile`).
+
 ### 2. Drop-in for the x402 fetch client (npm)
 
 ```bash

@@ -19,6 +19,9 @@ Paid routes use [x402](https://x402.org) on Base mainnet (USDC). Request the rou
 - `delivery`: `verified` (a paid test delivered; it stays valid until the price goes up or the payout wallet or network changes), `failing`, or `unverified`.
 - `valuesChecked`: the latest paid response also passed value checks: [known-answer tests](#known-answer-tests), or the automatic checks (it's about what we asked, its timestamp is recent, a token's USD price is near the public spot price).
 - `listing` (only when relevant): the paid response differs from the seller's own listing example or schema. `capped: true` when the data is reshaped (e.g. fields nested under `data`, grade capped at B); `warning` says where to read the fields; `sellerFix` says what the seller changes.
+- `withdrawn` (only when relevant): `{at, reason: "seller" | "gone", note}`. Withdrawn by the seller (`"withdrawn"` list in paycheck.json) or gone from the Bazaar and answering 404 for 3 days. No longer for sale; check-payment denies it.
+- Refunded failures: a failed paid test the seller refunds on-chain (exact amount back to our tester within an hour, Base) counts as no money lost: grade D, not F.
+- Async sellers: a paid call answered with HTTP 202 and a status link (`Location` header or a `status_url`-style field) is graded on the finished result, polled for up to 45 seconds on the same host.
 - `auth` (only when relevant): the latest paid test was refused with 401/403 and no money taken. `note` says why: its own sign-in, our test wallet refused, or customers only (all C). Agents with access send `hasAccess: true` to check-payment.
 - `exampleInput` / `requiredInput` (only when relevant): the listing's example input got "not found", or the endpoint wants a header or input its listing doesn't document (both D, no money taken).
 - `values` (only when relevant): `{ "checked": true }`, or a `warning` when an automatic value check failed (grade capped at B, never avoid).

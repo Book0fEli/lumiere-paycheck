@@ -8,7 +8,7 @@
 
 # Lumière PayCheck
 
-[![Live catalog size](https://lumierepaycheck.org/badge/catalog)](https://lumierepaycheck.org) [![Smithery](https://img.shields.io/badge/Smithery-MCP%20server-1C6B45)](https://smithery.ai/servers/jahman-el/paycheck) [![M8ven Score](https://m8ven.ai/badge/mcp/book0feli-lumiere-paycheck-m57tub?variant=verified)](https://m8ven.ai/mcp/book0feli-lumiere-paycheck-m57tub)
+[![Live catalog size](https://lumierepaycheck.org/badge/catalog)](https://lumierepaycheck.org) [![Smithery](https://img.shields.io/badge/Smithery-MCP%20server-1C6B45)](https://smithery.ai/servers/jahman-el/paycheck) [![M8ven Score](https://m8ven.ai/badge/mcp/book0feli-lumiere-paycheck-m57tub?variant=verified)](https://m8ven.ai/mcp/book0feli-lumiere-paycheck-m57tub) [![Lumière PayCheck MCP server – quality and maintenance score on Glama](https://glama.ai/mcp/servers/Book0fEli/lumiere-paycheck/badges/score.svg)](https://glama.ai/mcp/servers/Book0fEli/lumiere-paycheck)
 
 **Check an x402 endpoint before your agent pays it.**
 

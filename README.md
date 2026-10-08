@@ -28,6 +28,18 @@ Lumière PayCheck answers those questions. It monitors every endpoint listed in 
 - **Flags hijack risk, without punishing normal rotations.** Every payout-wallet change is checked against the seller's own wallet declaration, the seller's earlier wallets, and direct transfers between the old and new wallet. Confirmed rotations don't affect the grade; unexplained changes are `avoid`, then `caution` with human review. Sellers that use a new address per request are recognized automatically. [How it works](docs/api.md#payout-wallet-changes).
 - **Spending rules for agents.** Before paying, an agent asks "may I pay *this* endpoint *this* amount to *this* wallet?" and gets allow or deny with reasons.
 - **Plans for teams (new).** Scoped agent keys, daily/monthly spend limits, signed receipts your wallet verifies before paying, a replayable audit trail, and human review for anomalies. [Details](docs/subscriptions.md).
+- **Identity and access for agents that pay (new).** Like Entra ID and Intune, for AI agents:
+
+  | Feature | What it does | Plans |
+  |---|---|---|
+  | Payments outside PayCheck | Register an agent's wallet; every x402 payment it makes is matched to PayCheck's decisions, and payments made without asking, after a deny, or for more than approved alert you | All |
+  | SDK enforcement | `withPayCheck(client, { agentKey })` never signs a payment PayCheck denied, fails closed, and uses single-use receipts | All |
+  | Agent inventory | Status (active, idle, stale, expiring, frozen), last seen, client, compliance, risk; CSV | All |
+  | Agent credentials | Opt-in: agents prove to sellers they belong to a verified company; sellers verify for free with `verifyAgentCredential()` | Business+ |
+  | Access reviews, temporary limits, policy templates, risk score | Keep/change/revoke reviews with signed reports, time-limited limit raises, shared rule sets, explainable Low/Medium/High risk | Business+ |
+  | SSO and SCIM | Sign in with Entra ID, Okta or Google Workspace; people provisioned automatically | Enterprise |
+
+  [API](docs/api.md#agent-identity-and-access-v152) · [Administrator guide](https://lumierepaycheck.org/docs/admin-guide)
 - **Alerts.** Watch an endpoint and get signed webhook alerts when it breaks, changes wallet, or raises its price.
 - **Paid delivery checks:** small real payments that confirm an endpoint returns what it advertises. A failure only counts if a re-test about two hours later fails too, and requests an endpoint rejects for missing input never count.
 - **Known-answer tests: values, not just shape.** Uptime and schema checks can pass while an API returns the wrong number. For endpoints with a knowable answer, the verifier pays for a call with a known correct result, or compares against an independent live source, and checks the value itself. Sellers can add their own tests. [How it works](docs/api.md#known-answer-tests).

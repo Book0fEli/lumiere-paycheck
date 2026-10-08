@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { checkPayment, withPayCheck, wrapFetchWithPayCheck, reportOutcome, paymentTxFrom } from "../dist/index.js";
+import { checkPayment, withPayCheck, wrapFetchWithPayCheck, reportOutcome, paymentTxFrom, consumeReceipt, getAgentCredential, verifyAgentCredential } from "../dist/index.js";
+import { generateKeyPairSync, sign } from "node:crypto";
 
 const fakePayCheck = (answer, status = 200, seen = []) => async (url, init) => { seen.push({ url, init }); return new Response(JSON.stringify(answer), { status }); };
 const PAY = { url: "https://api.example.com/x", amount: "10000", payTo: "0xabc", network: "eip155:8453" };
@@ -116,4 +117,74 @@ test("hasAccess is sent for listed sellers only, and authRequired comes back", a
   assert.equal(JSON.parse(seen[1].init.body).hasAccess, undefined);
   await checkPayment(PAY, { agentKey: "k", hasAccess: true, fetch: fakePayCheck({ outcome: "allow", reasons: [] }, 200, seen) });
   assert.equal(JSON.parse(seen[2].init.body).hasAccess, true);
+});
+
+// ---------------- v0.3: enforcement and agent credentials ----------------
+test("agent key: fails closed when PayCheck is down, unless under the workspace's no-check amount", async () => {
+  const key = "pc_agent_failopen";
+  await checkPayment(PAY, { agentKey: key, fetch: fakePayCheck({ outcome: "allow", reasons: [], enforcement: { failClosed: true, failOpenUnder: "50000" } }) });
+  const down = async () => { throw new Error("down"); };
+  const small = await checkPayment({ ...PAY, amount: "10000" }, { agentKey: key, fetch: down });
+  const big = await checkPayment({ ...PAY, amount: "90000" }, { agentKey: key, fetch: down });
+  assert.equal(small.allow, true); assert.match(small.reasons[0], /no-check amount/);
+  assert.equal(big.allow, false); assert.match(big.reasons[0], /fail closed/);
+  assert.equal((await checkPayment(PAY, { agentKey: "pc_agent_other", fetch: down })).allow, false, "no remembered amount: closed");
+  assert.equal((await checkPayment(PAY, { agentKey: key, failOpenUnder: "0", fetch: down })).allow, false, "explicit 0 overrides");
+  const e500 = await checkPayment({ ...PAY, amount: "10000" }, { agentKey: key, fetch: fakePayCheck({ error: "internal_error" }, 500) });
+  assert.equal(e500.allow, true, "a 5xx counts as unreachable");
+  const e401 = await checkPayment({ ...PAY, amount: "10000" }, { agentKey: key, fetch: fakePayCheck({ error: "unauthorized" }, 401) });
+  assert.equal(e401.allow, false, "a bad key never fails open");
+});
+
+test("agent key: waits for a person to approve a review when asked to", async () => {
+  let polls = 0;
+  const f = async (url) => {
+    if (/\/v1\/authorize$/.test(url)) return new Response(JSON.stringify({ outcome: "review", reasons: ["first payment to a new wallet"], decision: "dec_9" }));
+    polls++; return new Response(JSON.stringify(polls < 2 ? { final: "review" } : { final: "allow", receipt: "r.s", reasons: ["approved"] }));
+  };
+  const d = await checkPayment(PAY, { agentKey: "k2", fetch: f, reviewWaitMs: 8000 });
+  assert.equal(d.allow, true); assert.equal(d.receipt, "r.s"); assert.equal(polls, 2);
+});
+
+test("consumeReceipt marks a receipt used", async () => {
+  const seen = [];
+  const r = await consumeReceipt("a.b", { fetch: fakePayCheck({ valid: false, reason: "already used: a receipt approves one payment" }, 200, seen) });
+  assert.equal(r.valid, false); assert.match(r.reason, /already used/);
+  assert.equal(JSON.parse(seen[0].init.body).consume, true);
+});
+
+test("agent credentials: fetched once per seller and sent as X-PayCheck-Agent", async () => {
+  let issued = 0; const sent = [];
+  const pc = async (url) => { issued++; return new Response(JSON.stringify({ credential: "h.p.s", expiresAt: new Date(Date.now() + 900_000).toISOString(), audience: "api.example.com", agentId: "agt_x", level: "domain", named: true })); };
+  const a = await getAgentCredential("https://api.example.com/v1", { agentKey: "pc_agent_c", fetch: pc });
+  const b = await getAgentCredential("api.example.com", { agentKey: "pc_agent_c", fetch: pc });
+  assert.equal(a.credential, "h.p.s"); assert.equal(b.credential, "h.p.s"); assert.equal(issued, 1);
+  const client = { onBeforePaymentCreation() {} };
+  const wrap = (f) => async (input, init) => f(input, init);
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = pc;
+  try {
+    const paid = wrapFetchWithPayCheck(async (input, init) => { sent.push(new Headers(init?.headers).get("x-paycheck-agent")); return new Response("ok"); }, client, wrap, { agentKey: "pc_agent_c", agentCredential: true });
+    await paid("https://api.example.com/v1/data");
+  } finally { globalThis.fetch = realFetch; }
+  assert.equal(sent[0], "h.p.s");
+});
+
+test("verifyAgentCredential: signature, audience, paying wallet, live status", async () => {
+  const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+  const jwk = { ...publicKey.export({ format: "jwk" }), kid: "paycheck-agents-1", alg: "EdDSA" };
+  const b = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
+  const make = (claims) => { const h = b({ alg: "EdDSA", typ: "JWT", kid: "paycheck-agents-1" }), p = b(claims); return `${h}.${p}.${sign(null, Buffer.from(`${h}.${p}`), privateKey).toString("base64url")}`; };
+  const now = Math.floor(Date.now() / 1000);
+  const claims = { iss: "https://lumierepaycheck.org", sub: "agt_1", aud: "api.example.com", iat: now, exp: now + 900, jti: "cred_1", pc: { v: 1, level: "domain", wallets: [{ network: "base", address: "0xAbC" }], org: { name: "Acme", domains: ["acme.test"] } } };
+  let active = true;
+  const f = async (url) => new Response(JSON.stringify(/jwks/.test(url) ? { keys: [jwk] } : { active, reason: active ? undefined : "revoked: the company turned agent credentials off" }));
+  const ok = await verifyAgentCredential(make(claims), { audience: "https://api.example.com/x", payer: "0xabc", fetch: f });
+  assert.equal(ok.valid, true); assert.equal(ok.org.name, "Acme"); assert.equal(ok.level, "domain");
+  assert.match((await verifyAgentCredential(make(claims), { audience: "evil.example", fetch: f })).reason, /issued for/);
+  assert.match((await verifyAgentCredential(make(claims), { audience: "api.example.com", payer: "0xdef", fetch: f })).reason, /paying wallet/);
+  assert.equal((await verifyAgentCredential(make({ ...claims, exp: now - 120 }), { audience: "api.example.com", fetch: f })).reason, "expired");
+  const t = make(claims); assert.equal((await verifyAgentCredential(t.slice(0, -4) + "AAAA", { audience: "api.example.com", fetch: f })).reason, "bad signature");
+  active = false; assert.match((await verifyAgentCredential(make(claims), { audience: "api.example.com", fetch: f })).reason, /turned agent credentials off/);
+  assert.equal((await verifyAgentCredential(undefined, { audience: "x" })).valid, false);
 });

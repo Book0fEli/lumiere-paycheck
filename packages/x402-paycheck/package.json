@@ -1,7 +1,7 @@
 {
   "name": "x402-paycheck",
-  "version": "0.2.1",
-  "description": "Check every x402 payment with Lumière PayCheck before your agent pays: trust grade, price, payout-wallet hijack, and OFAC sanctions checks, plus team spend limits.",
+  "version": "0.3.0",
+  "description": "Check every x402 payment with Lumière PayCheck before your agent pays: trust grade, price, payout-wallet hijack and OFAC checks, team spend limits enforced by the SDK, and agent credentials sellers can verify.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -22,15 +22,18 @@
     "test": "npm run build && node --test test/index.test.mjs"
   },
   "keywords": [
-    "x402",
+    "agent-identity",
     "ai-agents",
-    "payments",
-    "trust",
-    "mcp",
-    "usdc",
     "base",
+    "iam",
+    "mcp",
+    "payments",
     "solana",
-    "spend-limits"
+    "spend-limits",
+    "trust",
+    "usdc",
+    "verifiable-credentials",
+    "x402"
   ],
   "homepage": "https://lumierepaycheck.org",
   "repository": {

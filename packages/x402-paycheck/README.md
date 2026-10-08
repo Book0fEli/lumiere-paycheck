@@ -4,7 +4,7 @@ Check every x402 payment with [Lumière PayCheck](https://lumierepaycheck.org) b
 
 Before your agent signs a payment, PayCheck checks:
 
-- **Trust grade:** uptime, response time, price and payout-wallet stability, and real paid delivery tests across 21,000+ monitored x402 endpoints
+- **Trust grade:** uptime, response time, price and payout-wallet stability, and real paid delivery tests across 38,000+ monitored x402 endpoints
 - **Price:** the quote isn't higher than the price PayCheck has been monitoring
 - **Payout wallet:** the wallet hasn't been swapped (a common sign of a hijacked endpoint)
 - **Sanctions:** the wallet isn't on the U.S. Treasury OFAC sanctions list
@@ -81,7 +81,39 @@ const client = withPayCheck(baseClient, { agentKey: process.env.PAYCHECK_AGENT_K
 // client.lastPayCheckDecision.receipt -> signed receipt for the allowed payment
 ```
 
-A decision sent to human review counts as "not allowed" until someone approves it.
+A decision sent to human review counts as "not allowed" until someone approves it. To wait for the approval instead, pass `reviewWaitMs` (for example `120_000`).
+
+### Enforced by the SDK
+
+With an agent key, a payment PayCheck denies can't be signed, and the agent shows **Enforced by SDK** on your account page.
+
+- **Fail closed:** if PayCheck can't be reached (network error, 5xx, 429), the payment is blocked, except payments under the amount your workspace allows without a check (Policies → "If PayCheck can't be reached"; remembered from the last decision). `failOpenUnder: "0"` always blocks. A bad or revoked key never fails open.
+- **Single-use receipts:** wallet code that requires a receipt can call `consumeReceipt(receipt)`; a receipt approves one payment, so a second use fails.
+- **Re-quotes:** if a seller asks for more after approval, the new amount is checked again before anything is signed.
+
+### Agent credentials (opt-in)
+
+If your workspace's Owner turned on agent credentials, the agent can prove to sellers that it belongs to a verified company:
+
+```ts
+const fetchWithPay = wrapFetchWithPayCheck(fetch, client, wrapFetchWithPayment, { agentKey, agentCredential: true });
+// each paid request carries an X-PayCheck-Agent header (15 minutes, bound to the agent's registered wallet)
+```
+
+Or get one yourself: `await getAgentCredential("api.seller.example", { agentKey })`.
+
+## For sellers: recognize PayCheck-verified agents
+
+```ts
+import { verifyAgentCredential } from "x402-paycheck";
+
+const v = await verifyAgentCredential(req.headers["x-paycheck-agent"], { audience: "api.yourservice.com", payer: paidFromWallet });
+if (v.valid) {
+  // v.level: "workspace" | "domain" | "business"; v.org (named credentials): { name, domains }; v.agent: an ID only you see
+}
+```
+
+It checks the Ed25519 signature against PayCheck's published keys (`/.well-known/jwks.json`), the expiry, that it was issued for your host, that the wallet that paid you is the agent's, and (unless `online: false`) that the company hasn't turned credentials off. Free, no account needed.
 
 ## Sellers that need their own sign-in
 

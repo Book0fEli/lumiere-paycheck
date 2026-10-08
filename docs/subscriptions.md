@@ -13,6 +13,10 @@ and (on allow) a **signed receipt** your wallet can verify before sending money.
 | Signed receipts (Ed25519) | ✅ | ✅ | ✅ |
 | Replayable audit trail | 30 days | 1 year + CSV export | Custom |
 | Human review for anomalies + signed webhook | — | ✅ | ✅ |
+| Agent inventory, SDK enforcement, freeze one agent | ✅ | ✅ | ✅ |
+| Payments outside PayCheck (registered wallets) | 1 per agent, daily | 5 per agent, hourly | Unlimited, every 10 min |
+| Agent credentials, access reviews, temporary limits, policy templates, risk score | — | ✅ | ✅ |
+| SSO (OpenID Connect) and SCIM provisioning | — | — | ✅ |
 
 <p align="center">
   <img src="../assets/5-subscribe.png" alt="Subscribe page" width="760">
@@ -126,7 +130,18 @@ network. They expire after 5 minutes. Verify them:
 - **Online:** `POST /v1/receipts/verify` with `{ "receipt": "…" }`
 
 Always check that the receipt's `amount`, `payTo`, `network`, and `url` match the
-payment you're about to make.
+payment you're about to make. Receipts are **single-use**: send `"consume": true`
+to `/v1/receipts/verify` and a second use fails.
+
+**The easy way:** our npm package does all of this. `withPayCheck(client, { agentKey })`
+on an `@x402/fetch` client asks PayCheck before every payment, never signs a payment
+PayCheck denied, and fails closed if PayCheck can't be reached (except under the
+no-check amount you set on the account page). Agents using it show **Enforced by SDK**.
+
+**Catch what slips past:** register each agent's wallet on the account page
+(Agents → Wallets) and every x402 payment it makes is matched to your decisions;
+payments made without asking, after a deny, or for more than approved alert you.
+More in [Agent identity and access](api.md#agent-identity-and-access-v152).
 
 ## Help keep x402 safe: outcome reports (on by default)
 

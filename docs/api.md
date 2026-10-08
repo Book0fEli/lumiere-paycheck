@@ -426,6 +426,10 @@ Same tools at `https://lumierepaycheck.org/mcp?plans=1`, whose instructions also
 | `get_full_report` | How to buy the full report |
 | `report_outcome` | After paying, report how it went (receipt, or url + payment tx; short answers) |
 
+Connected with an agent key, three more tools appear for that agent: `my_payment_compliance`, `get_agent_credential`, `request_limit_increase` (see [Agent identity and access](#agent-identity-and-access-v152)).
+
+Errors: an unknown tool, a missing or non-object `arguments`, or a malformed request gets a JSON-RPC error (`-32602` invalid params / unknown tool, with `data.availableTools`; `-32600` invalid request; `-32700` parse error), never an HTML page.
+
 ## Rate limits
 
 Free routes: 60 requests/minute per client, with `ratelimit-limit`, `ratelimit-remaining`, and `retry-after` headers. Over the limit → `429`. For volume, use `/v1/score/batch`.
@@ -464,7 +468,7 @@ Roles: `viewer` (read-only) < `approver` (+ approve/deny reviews) < `admin` (+ a
 
 ## Key-less agent sign-in (workload identity)
 
-Instead of storing an agent key, an agent can send a short-lived token from the platform it runs on. Link the workload to an agent once (account page → **Key-less sign-in**, or `POST /v1/agents/:id/identities`), then send the platform token as the bearer token to `POST /v1/authorize`. The token's **audience** must be `https://lumierepaycheck.org`.
+Instead of storing an agent key, an agent can send a short-lived token from the platform it runs on. Link the workload to an agent once (account page → open the agent → **Sign-in**, or `POST /v1/agents/:id/identities`), then send the platform token as the bearer token to `POST /v1/authorize`. The token's **audience** must be `https://lumierepaycheck.org`.
 
 ```json
 POST /v1/agents/ag_123/identities
@@ -496,3 +500,108 @@ TOKEN=$(curl -sS -H "Metadata-Flavor: Google" \
 The subject is the service account's unique ID (a long number).
 
 Tokens must be signed with RS/PS/ES algorithms, unexpired, and valid for at most 24 hours. Decisions record which workload made the request (issuer and subject), never the token itself.
+
+
+## Agent identity and access (v1.52)
+
+Everything below needs an owner or administrator key (or an SSO session), except the agent's own calls (agent key or key-less token) and the seller calls (no key). Plan-gated calls answer `403 { "error": "plan_feature", "availableOn": "Business" }` on lower plans. Every change is recorded in `GET /v1/activity`.
+
+### Settings
+
+| Call | Role | What it does |
+|---|---|---|
+| `GET /v1/iam` | viewer | Settings plus which features your plan includes |
+| `PATCH /v1/iam` | admin | `shadow: { scope: "x402" \| "all_usdc", autoFreeze }`, `failOpenUnder` (atomic, up to `10000000`, or `null`), `riskRule: "off" \| "review_high" \| "deny_high"`, `accessReviews: { enabled, intervalDays: 30\|60\|90\|180, revokeUnreviewed }`, `credentials: { level: "off" \| "anonymous" \| "named", displayName }` (owner only) |
+
+### Payments outside PayCheck
+
+| Call | Role | What it does |
+|---|---|---|
+| `POST /v1/agents/:id/wallets` | admin | `{ network: "base" \| "solana", address }` → `{ challenge, expiresAt, howToSign }` (30 minutes) |
+| `POST /v1/agents/:id/wallets/verify` | admin | `{ address, signature }`: EIP-191 (`personal_sign`, smart wallets via EIP-1271) on Base, ed25519 (base58, base64 or hex) on Solana |
+| `GET /v1/agents/:id/wallets` | viewer | Registered wallets and your plan's limit |
+| `DELETE /v1/agents/:id/wallets/:address` | admin | Stop watching (history stays) |
+| `GET /v1/payments?agent=&status=&from=&to=` | viewer | `status`: `approved`, `paid_more`, `paid_after_deny`, `not_checked`, or `outside` (all but approved) |
+| `GET /v1/agents/:id/payments` | viewer | One agent's payments |
+| `GET /v1/compliance?days=30` | viewer | Share of payments that went through PayCheck, per agent, and payment-index freshness |
+| `POST /v1/agents/:id/freeze` · `/unfreeze` | admin | Pause one agent (`{ reason }`); a frozen agent's payments are denied |
+
+A payment is **approved** when an `allow` decision exists for the same agent (or agents sharing the wallet), seller wallet and network, for at least the amount paid, made within 30 minutes before it, not used by another payment. Webhook and security-stream event:
+
+```json
+{ "type": "payment.outside_paycheck", "agent": { "id": "ag_…", "name": "research-bot" }, "wallet": "0x…", "tx": "0x…", "network": "base",
+  "seller": "0x…", "amount": "10000", "at": "2026-10-08T12:00:00Z", "status": "paid_after_deny", "decision": "dec_…", "frozen": false }
+```
+
+### SDK enforcement and receipts
+
+- Every `/v1/authorize` answer includes `enforcement: { failClosed: true, failOpenUnder, receiptSingleUse: true }`.
+- `POST /v1/receipts/verify` `{ receipt, consume: true }` marks the receipt used; a second consume returns `{ valid: false, reason: "already used: a receipt approves one payment" }`. Without `consume` it only checks.
+- Agents sending `User-Agent: x402-paycheck/<version>` (our npm package) show as enforced by the SDK.
+
+### Agent inventory
+
+`GET /v1/inventory` (viewer; `?status=stale`, `&format=csv`): per agent `status` (`active`, `idle`, `stale`, `never_used`, `expiring`, `frozen`, `expired`, `revoked`), `lastSeenAt`, `lastDecision`, `signIn` (`key` / `key-less`), `client` (as reported by the agent), `sdkEnforced`, `wallets`, `compliance`, `risk`, `riskReasons`, `keyAgeDays`, `expiresAt`, `sharedKey`, `template`, `limits`.
+
+### Agent credentials
+
+| Call | Who | What it does |
+|---|---|---|
+| `GET /v1/credentials` | viewer | Your setting, verification level, domains, and exactly what sellers would see |
+| `POST /v1/domains` | owner | `{ domain }` → the TXT record to add: `_lumiere-paycheck.<domain>` = `paycheck-workspace=<token>` |
+| `POST /v1/domains/:domain/check` | admin | Looks up the record now (also rechecked weekly) |
+| `DELETE /v1/domains/:domain` | owner | |
+| `PATCH /v1/agents/:id/credential-mode` | admin | `{ mode: "inherit" \| "anonymous" \| "exclude" }` |
+| `POST /v1/agents/credential` | the agent | `{ audience: "api.seller.example" }` → `{ credential, expiresAt, agentId, level, named }` (15 minutes; needs a verified wallet) |
+| `POST /v1/credentials/verify` | sellers, free | `{ credential, audience, payer }` → `{ valid, agent, level, org, wallets }` or `{ valid: false, reason }` |
+| `GET /v1/credentials/status/:jti` | sellers, free | `{ active }`: fails at once (`reason: "revoked"`, never why) when the company opts out, or the agent is excluded, frozen or revoked |
+| `GET /.well-known/jwks.json` | anyone | Ed25519 public keys: `paycheck-agents-1` (credentials) and `paycheck-receipts-1` (receipts, review reports) |
+
+Agents send the credential as the `X-PayCheck-Agent` header. It's a JWT (`alg: EdDSA`, `kid: paycheck-agents-1`) with `iss`, `sub` (an agent ID that's different for every seller), `aud` (the seller host), `iat`, `exp`, `jti`, and `pc: { v, level, wallets, org? }`. `org` (`{ name, domains }`) is present only with the "named" setting, which needs a verified domain. Our npm package's `verifyAgentCredential()` does all the checks.
+
+### Single sign-on and SCIM (Enterprise)
+
+| Call | Role | What it does |
+|---|---|---|
+| `GET /v1/sso` | admin | Settings, `redirectUri`, `signInUrl`, `scimBaseUrl` |
+| `PUT /v1/sso` | owner | `{ issuer, clientId, clientSecret, domains, groupClaim, roleMap: { "<group>": "viewer" \| "approver" \| "admin" }, defaultRole: "none" \| "viewer" \| "approver" \| "admin", enabled }` |
+| `DELETE /v1/sso` | owner | Turns SSO off and ends sessions |
+| `POST /v1/scim/token` · `DELETE /v1/scim/token` | owner | Create (shown once) or revoke the SCIM token |
+| `GET /sso/start?email=` · `?ws=` | anyone | Starts sign-in (OpenID Connect authorization code with PKCE), bound to this browser by a cookie |
+| `POST /v1/sso/exchange` | the same browser | `{ code }` from the `#sso_code=` fragment → `{ session }` (one-time, 2 minutes) |
+
+SCIM 2.0 at `/scim/v2` with `Authorization: Bearer pc_scim_…`: `ServiceProviderConfig`, `ResourceTypes`, `Schemas`, `Users` (list with `filter=userName eq "…"` or `externalId eq "…"`, create, get, replace, patch, delete). `Groups` lists nothing: groups map to roles at sign-in, and a user's role can be set with the SCIM `roles` attribute. Deactivating a user removes their access and ends their sessions.
+
+### Access reviews (Business+)
+
+| Call | Role | What it does |
+|---|---|---|
+| `GET /v1/access-reviews` | viewer | Settings and recent reviews with progress |
+| `POST /v1/access-reviews` | admin | Start one now |
+| `POST /v1/access-reviews/:id/items/:agentId` | approver (keep), admin (change, revoke) | `{ decision: "keep" \| "change" \| "revoke", note, changes: { dailyLimit, … } }` |
+| `POST /v1/access-reviews/:id/keep-all` | admin | `{ justification }` (required) |
+| `GET /v1/access-reviews/:id/report` | viewer | `{ report, sha256, signature, kid }`: Ed25519 over the exact JSON of `report` |
+
+### Temporary limit increases (Business+)
+
+| Call | Who | What it does |
+|---|---|---|
+| `POST /v1/agents/me/limit-increase` | the agent | `{ dailyLimit (at most 10× its daily limit), hours (1-72), reason }` → `202` pending (5 a day; one at a time; expires in 24 hours if unanswered) |
+| `GET /v1/agents/me` | the agent | Its limits (with any active increase), compliance, wallets |
+| `POST /v1/agents/:id/limit-increase` | admin | Grant one directly (at most 10× the agent's daily limit, 72 hours) |
+| `GET /v1/limit-increases?status=&agent=` | viewer | |
+| `POST /v1/limit-increases/:id/approve` · `/deny` · `/cancel` | approver | |
+
+Decisions made during an increase record it in their context (`agent.tempIncrease`), so replays match.
+
+### Policy templates (Business+)
+
+`GET /v1/templates` (viewer; three starter templates the first time), `POST /v1/templates` and `PATCH /v1/templates/:id` (admin; `{ name, description, settings: { maxPerPayment, dailyLimit, monthlyLimit, reviewAbove, reviewNewWallets, requireVerified, allowedHosts, minOrganicShare } }`; updating applies to every agent using it except their overrides), `DELETE /v1/templates/:id` (refused while agents use it), `POST /v1/agents/:id/template` `{ templateId }` (or `null`), `POST /v1/agents/:id/template/reset`. `PATCH /v1/agents/:id` on a template field records it in the agent's `templateOverrides`.
+
+### Agent risk (Business+)
+
+`GET /v1/agents/:id/risk` (viewer) → `{ level: "low" \| "medium" \| "high", score, reasons, rule }`. Decisions store the level used (`agent.risk`), so replays match. Alert payload: `{ "type": "agent.high_risk", "agent": { "id", "name" }, "score", "reasons" }`.
+
+### MCP tools for an agent's own key
+
+Connecting to `https://lumierepaycheck.org/mcp` with `Authorization: Bearer <agent key>` adds three tools for that agent: `my_payment_compliance`, `get_agent_credential` (`audience`), and `request_limit_increase` (`dailyLimitUsd`, `hours`, `reason`). The public tool list doesn't change.

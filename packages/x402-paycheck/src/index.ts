@@ -13,6 +13,14 @@
 // With a team plan, pass `agentKey` to use /v1/authorize instead: per-agent spend limits,
 // allowed sellers, human review, and a signed receipt for every allowed payment.
 //
+// Enforcement (team plans): with an agent key, a payment PayCheck denies can't be signed. If PayCheck can't be
+// reached, the payment is blocked (fail closed) unless it's under the amount your workspace allows without a check
+// (set on the account page; we remember the last value PayCheck sent). Reviews can be waited for (reviewWaitMs).
+//
+// Agent credentials (opt-in, team plans): agentCredential: true adds a short-lived X-PayCheck-Agent header to each
+// paid request, so sellers can recognize your agent as belonging to a verified company. Sellers verify it with
+// verifyAgentCredential().
+//
 // After paying, reportOutcome({ url, response }) tells PayCheck whether you got what you paid for (free,
 // verified on-chain from the payment's transaction). Confirmations move the endpoint up PayCheck's own
 // paid-test queue; problems trigger a re-test. Reports never change a grade by themselves.
@@ -20,7 +28,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
 export const DEFAULT_API = "https://lumierepaycheck.org";
-const VERSION = "0.2.1";
+const VERSION = "0.3.0";
 
 export interface PayCheckRules {
   maxAmount?: string | number;      // atomic units (USDC: 1000000 = $1)
@@ -38,6 +46,11 @@ export interface PayCheckOptions {
   agentKey?: string;                // team plan agent key: uses /v1/authorize (spend limits, receipts)
   rules?: PayCheckRules;            // rules for the free check (ignored with agentKey: the workspace's rules apply)
   failOpen?: boolean;               // default false: if PayCheck can't be reached, block the payment
+  // Agent key only: if PayCheck can't be reached, allow payments under this amount (atomic units). Defaults to the
+  // amount your workspace set (sent with every decision); set "0" to always fail closed.
+  failOpenUnder?: string;
+  reviewWaitMs?: number;            // agent key only: wait this long for a person to approve a "review" (default 0: don't wait)
+  agentCredential?: boolean;        // agent key only: send an X-PayCheck-Agent credential with paid requests (wrapFetchWithPayCheck)
   timeoutMs?: number;               // default 8000
   onDecision?: (d: PayCheckDecision) => void | Promise<void>;
   fetch?: typeof globalThis.fetch;  // the fetch used to call PayCheck (default: globalThis.fetch)
@@ -95,13 +108,32 @@ export async function checkPayment(p: PaymentToCheck, opts: PayCheckOptions = {}
   if (opts.agentKey) { path = "/v1/authorize"; headers.authorization = `Bearer ${opts.agentKey}`; body = { url: p.url, amount: String(p.amount), payTo: p.payTo, network: p.network, ...(hasAccess ? { hasAccess: true } : {}) }; }
   else { if (opts.apiKey) headers["x-paycheck-key"] = opts.apiKey; body = { url: p.url, amount: String(p.amount), payTo: p.payTo, network: p.network, ...(hasAccess ? { hasAccess: true } : {}), ...(opts.rules ? { rules: opts.rules } : {}) }; }
   let decision: PayCheckDecision;
+  const failSoft = (why: string): PayCheckDecision => {
+    const under = opts.agentKey ? (opts.failOpenUnder ?? workspaceFailOpen.get(opts.agentKey) ?? null) : null;
+    const small = !!under && under !== "0" && BigInt(String(p.amount)) < BigInt(under);
+    const allow = !!opts.failOpen || small;
+    return { allow, outcome: "error", reasons: [why + (opts.failOpen ? " (failOpen: allowed)" : small ? ` (under your workspace's no-check amount ${under}: allowed)` : " (fail closed: not paid)")], payment: p };
+  };
   try {
     const res = await f(`${base}${path}`, { method: "POST", headers, body: JSON.stringify(body), signal: AbortSignal.timeout(opts.timeoutMs ?? 8000) });
     const j = await res.json().catch(() => ({})) as any;
     if (!res.ok) {
-      decision = { allow: !!opts.failOpen, outcome: "error", reasons: [`PayCheck answered HTTP ${res.status}${j?.error ? `: ${j.error}` : ""}${opts.failOpen ? " (failOpen: allowed)" : ""}`], payment: p, raw: j };
+      decision = res.status >= 500 || res.status === 429 ? { ...failSoft(`PayCheck answered HTTP ${res.status}${j?.error ? `: ${j.error}` : ""}`), raw: j }
+        : { allow: !!opts.failOpen, outcome: "error", reasons: [`PayCheck answered HTTP ${res.status}${j?.error ? `: ${j.error}` : ""}${j?.detail ? ` (${j.detail})` : ""}${opts.failOpen ? " (failOpen: allowed)" : ""}`], payment: p, raw: j };
     } else if (opts.agentKey) {
-      const outcome = j.outcome === "allow" || j.outcome === "deny" || j.outcome === "review" ? j.outcome : "error";
+      if (j?.enforcement && "failOpenUnder" in j.enforcement) workspaceFailOpen.set(opts.agentKey, j.enforcement.failOpenUnder ?? "0");
+      let outcome = j.outcome === "allow" || j.outcome === "deny" || j.outcome === "review" ? j.outcome : "error";
+      if (outcome === "review" && opts.reviewWaitMs && j.decision) {
+        const until = Date.now() + opts.reviewWaitMs;
+        while (Date.now() < until) {
+          await new Promise(r => setTimeout(r, Math.min(3000, Math.max(0, until - Date.now()))));
+          try {
+            const pr = await f(`${base}/v1/decisions/${encodeURIComponent(j.decision)}`, { headers: { authorization: `Bearer ${opts.agentKey}`, "user-agent": `x402-paycheck/${VERSION}` }, signal: AbortSignal.timeout(opts.timeoutMs ?? 8000) });
+            const pj = await pr.json().catch(() => ({})) as any;
+            if (pj.final === "allow" || pj.final === "deny" || pj.final === "expired") { outcome = pj.final === "allow" ? "allow" : "deny"; j.receipt = pj.receipt ?? j.receipt; j.reasons = pj.reasons ?? j.reasons; break; }
+          } catch { /* keep waiting */ }
+        }
+      }
       decision = { allow: outcome === "allow", outcome, reasons: Array.isArray(j.reasons) ? j.reasons : [], payment: p, receipt: j.receipt ?? undefined, decision: j.decision,
                    ...(j.authRequired ? { authRequired: true } : {}), raw: j };
     } else {
@@ -109,11 +141,14 @@ export async function checkPayment(p: PaymentToCheck, opts: PayCheckOptions = {}
                    ...(j.buyers && typeof j.buyers === "object" ? { buyers: j.buyers as BuyerSummary } : {}), ...(j.authRequired ? { authRequired: true } : {}), raw: j };
     }
   } catch (err) {
-    decision = { allow: !!opts.failOpen, outcome: "error", reasons: [`couldn't reach PayCheck: ${(err as Error)?.message ?? err}${opts.failOpen ? " (failOpen: allowed)" : ""}`], payment: p };
+    decision = failSoft(`couldn't reach PayCheck: ${(err as Error)?.message ?? err}`);
   }
   try { await opts.onDecision?.(decision); } catch { /* callbacks never change the decision */ }
   return decision;
 }
+
+// The workspace's "allow without a check under $X" amount, remembered per agent key from the last decision.
+const workspaceFailOpen = new Map<string, string>();
 
 // The URL of the request being paid, for 402 quotes that don't include resource.url (x402 v1).
 const currentUrl = new AsyncLocalStorage<string>();
@@ -148,8 +183,12 @@ export function wrapFetchWithPayCheck(
   opts: PayCheckOptions = {},
 ) {
   const paying = wrapFetchWithPayment(fetchFn, withPayCheck(client, opts));
-  return (input: RequestInfo | URL, init?: RequestInit) => {
+  return async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : (input as Request).url;
+    if (opts.agentCredential && opts.agentKey) {
+      const c = await getAgentCredential(new URL(url).host, opts).catch(() => null);
+      if (c?.credential) { const h = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined)); h.set("x-paycheck-agent", c.credential); init = { ...init, headers: h }; }
+    }
     return currentUrl.run(url, () => paying(input, init));
   };
 }
@@ -218,4 +257,76 @@ export async function reportOutcome(r: OutcomeReport, opts: Pick<PayCheckOptions
   } catch (err) {
     return { accepted: false, reason: `couldn't reach PayCheck: ${(err as Error)?.message ?? err}` };
   }
+}
+
+// ---------------- enforcement helpers ----------------
+
+// For wallet code that requires a receipt: checks it with PayCheck and marks it used, so it approves one payment.
+export async function consumeReceipt(receipt: string, opts: Pick<PayCheckOptions, "apiUrl" | "timeoutMs" | "fetch"> = {}): Promise<{ valid: boolean; reason?: string; payload?: any }> {
+  const f = opts.fetch ?? globalThis.fetch, base = (opts.apiUrl ?? DEFAULT_API).replace(/\/$/, "");
+  try {
+    const r = await f(`${base}/v1/receipts/verify`, { method: "POST", headers: { "content-type": "application/json", "user-agent": `x402-paycheck/${VERSION}` }, body: JSON.stringify({ receipt, consume: true }), signal: AbortSignal.timeout(opts.timeoutMs ?? 8000) });
+    const j = await r.json().catch(() => ({})) as any;
+    return { valid: j.valid === true, ...(j.reason ? { reason: j.reason } : {}), ...(j.payload ? { payload: j.payload } : {}) };
+  } catch (err) { return { valid: false, reason: `couldn't reach PayCheck: ${(err as Error)?.message ?? err}` }; }
+}
+
+// ---------------- agent credentials ----------------
+
+export interface AgentCredential { credential: string; expiresAt: string; audience: string; agentId: string; level: string; named: boolean }
+const credCache = new Map<string, AgentCredential>();
+
+// Agent side: a short-lived credential for one seller (cached until a minute before it expires).
+export async function getAgentCredential(audience: string, opts: Pick<PayCheckOptions, "apiUrl" | "agentKey" | "timeoutMs" | "fetch">): Promise<AgentCredential> {
+  if (!opts.agentKey) throw new Error("getAgentCredential needs agentKey");
+  const aud = audience.toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+  const k = `${opts.agentKey.slice(-12)}|${aud}`, hit = credCache.get(k);
+  if (hit && Date.parse(hit.expiresAt) - Date.now() > 60_000) return hit;
+  const f = opts.fetch ?? globalThis.fetch, base = (opts.apiUrl ?? DEFAULT_API).replace(/\/$/, "");
+  const r = await f(`${base}/v1/agents/credential`, { method: "POST", headers: { authorization: `Bearer ${opts.agentKey}`, "content-type": "application/json", "user-agent": `x402-paycheck/${VERSION}` },
+    body: JSON.stringify({ audience: aud }), signal: AbortSignal.timeout(opts.timeoutMs ?? 8000) });
+  const j = await r.json().catch(() => ({})) as any;
+  if (!r.ok || !j.credential) throw new Error(`no agent credential: ${j.detail ?? j.error ?? r.status}`);
+  const c: AgentCredential = { credential: j.credential, expiresAt: j.expiresAt, audience: j.audience, agentId: j.agentId, level: j.level, named: !!j.named };
+  credCache.set(k, c);
+  return c;
+}
+
+export interface VerifiedAgent { valid: boolean; reason?: string; agent?: string; level?: "workspace" | "domain" | "business"; org?: { name: string; domains: string[] } | null; wallets?: { network: string; address: string }[]; expiresAt?: string }
+const jwksCache = new Map<string, { keys: any[]; at: number }>();
+
+// Seller side: is this X-PayCheck-Agent credential real, for me, from the wallet that paid, and still active?
+//   audience  your host (e.g. "api.example.com"); required
+//   payer     the wallet that paid you (from the x402 payment), so a stolen credential is useless from another wallet
+//   online    also ask PayCheck whether it was revoked in the last 15 minutes (default true)
+export async function verifyAgentCredential(token: string | null | undefined, o: { audience: string; payer?: string; online?: boolean; apiUrl?: string; fetch?: typeof globalThis.fetch; timeoutMs?: number }): Promise<VerifiedAgent> {
+  if (!token || !/^[\w-]+\.[\w-]+\.[\w-]+$/.test(token)) return { valid: false, reason: "no credential" };
+  const { createPublicKey, verify } = await import("node:crypto");
+  const f = o.fetch ?? globalThis.fetch, base = (o.apiUrl ?? DEFAULT_API).replace(/\/$/, "");
+  const [h, p, s] = token.split(".");
+  let header: any, claims: any;
+  try { header = JSON.parse(Buffer.from(h, "base64url").toString()); claims = JSON.parse(Buffer.from(p, "base64url").toString()); } catch { return { valid: false, reason: "malformed credential" }; }
+  if (header.alg !== "EdDSA") return { valid: false, reason: "unexpected algorithm" };
+  let keys = jwksCache.get(base);
+  if (!keys || Date.now() - keys.at > 3600_000 || !keys.keys.some(k => k.kid === header.kid)) {
+    const r = await f(`${base}/.well-known/jwks.json`, { signal: AbortSignal.timeout(o.timeoutMs ?? 8000) });
+    keys = { keys: ((await r.json()) as any).keys ?? [], at: Date.now() }; jwksCache.set(base, keys);
+  }
+  const jwk = keys.keys.find(k => k.kid === header.kid && k.kid === "paycheck-agents-1");
+  if (!jwk) return { valid: false, reason: "unknown signing key" };
+  if (!verify(null, Buffer.from(`${h}.${p}`), createPublicKey({ key: jwk, format: "jwk" }), Buffer.from(s, "base64url"))) return { valid: false, reason: "bad signature" };
+  if (claims.iss !== base) return { valid: false, reason: "issued by someone else" };
+  if (typeof claims.exp !== "number" || claims.exp * 1000 < Date.now() - 30_000) return { valid: false, reason: "expired" };
+  const aud = o.audience.toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+  if (claims.aud !== aud) return { valid: false, reason: `issued for ${claims.aud}, not ${aud}` };
+  const norm = (a: string) => (a.startsWith("0x") ? a.toLowerCase() : a);
+  if (o.payer && !(claims.pc?.wallets ?? []).some((w: any) => norm(String(w.address)) === norm(o.payer!))) return { valid: false, reason: "the paying wallet isn't this agent's" };
+  if (o.online !== false) {
+    try {
+      const r = await f(`${base}/v1/credentials/status/${encodeURIComponent(claims.jti)}`, { signal: AbortSignal.timeout(o.timeoutMs ?? 8000) });
+      const st = await r.json() as any;
+      if (!st.active) return { valid: false, reason: st.reason ?? "revoked" };
+    } catch { return { valid: false, reason: "couldn't check the credential's status" }; }
+  }
+  return { valid: true, agent: claims.sub, level: claims.pc?.level, org: claims.pc?.org ?? null, wallets: claims.pc?.wallets ?? [], expiresAt: new Date(claims.exp * 1000).toISOString() };
 }

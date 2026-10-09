@@ -26,6 +26,26 @@ Paid routes use [x402](https://x402.org) on Base mainnet (USDC). Request the rou
 - `exampleInput` / `requiredInput` (only when relevant): the listing's example input got "not found", or the endpoint wants a header or input its listing doesn't document (both D, no money taken).
 - `values` (only when relevant): `{ "checked": true }`, or a `warning` when an automatic value check failed (grade capped at B, never avoid).
 
+**Why it has that grade.** Every answer from `/v1/score`, the paid report and MCP `check_endpoint` explains itself:
+
+```json
+{ "grade": "F", "verdict": "avoid",
+  "advice": "Do not pay. Our latest paid test failed (HTTP 200): none of the example's fields (data) in the response. The seller kept the payment.",
+  "headline": "Avoid: our latest paid test failed (HTTP 200): none of the example's fields (data) in the response. The seller kept the payment.",
+  "reasons": [
+    { "factor": "delivery", "effect": "negative", "at": "2026-10-08", "limit": "F (max 39)", "text": "Our latest paid test failed (HTTP 200): ... The seller kept the payment." },
+    { "factor": "uptime", "effect": "positive", "text": "96% of 300 checks in the last 7 days returned a valid payment quote." },
+    { "factor": "speed", "effect": "positive", "text": "Median response time 640 ms (full points up to 1 second)." },
+    { "factor": "wallet", "effect": "positive", "text": "Payout wallet stable." } ],
+  "points": { "uptime": "38 of 40", "speed": "15 of 15", "stability": "25 of 25", "delivery": "0 of 20", "total": "39" },
+  "decidedBy": "Score 39 (F) is a ceiling set because the latest paid test failed and the seller kept the payment; the points alone would give 78." }
+```
+
+- `advice`: what to do, naming the actual cause. `headline`: the verdict and its main reason in one sentence.
+- `reasons`: every factor behind the grade, problems first. `factor` is `data`, `delivery`, `uptime`, `speed`, `wallet`, `price`, `listing`, `values`, `access` or `withdrawn`; `effect` is `positive`, `neutral` or `negative`; `limit` is the ceiling that factor puts on the grade; `at` is the date it's based on. Paid-test results say what came back and whether money was taken, kept or refunded.
+- `points`: the published formula: uptime /40, speed /15, stability /25, delivery /20 (rescaled when not paid-tested yet). `decidedBy`: whether a rule capped the score, and which.
+- `check-payment` (REST and MCP) adds the same as `gradeHeadline` and `gradeReasons`. The leaderboard stays compact and doesn't include them.
+
 - `payToMode`: `fixed`, or `per_request` for sellers that issue a new payout address on every request (their address changes are normal and never count).
 - `walletChanges`: payout-wallet incidents in 7 days (avoid). `walletUnconfirmed`: changes nobody could confirm after 24 hours (caution). `walletConfirmed`: changes confirmed as the seller's own rotation (no effect). See [Payout-wallet changes](#payout-wallet-changes).
 
@@ -273,7 +293,7 @@ Sellers grouped by domain, biggest first: endpoints listed, how many pass, best 
 
 ## `GET /v1/report?url=<endpoint>` · $0.005
 
-Everything in `/v1/score` plus score breakdown, median latency, wallet and price event counts, delivery rate, the current quote (payTo, amount, network), the last 20 events, and the last 10 paid delivery checks.
+Everything in `/v1/score` plus score breakdown, median latency, wallet and price event counts, delivery rate, the current quote (payTo, amount, network), the last 20 events, and the last 10 paid delivery checks. Each paid check (`recentDeliveries`) has its time, outcome, HTTP status, latency, amount, `moneyTaken` and `refunded` (yes/no), and what came back. Our tester's wallet and transactions aren't included.
 
 ## `GET /v1/wallet-risk?address=<wallet>[&compare=<wallet>]` · $0.01
 
@@ -420,7 +440,7 @@ Same tools at `https://lumierepaycheck.org/mcp?plans=1`, whose instructions also
 | Tool | Purpose |
 |---|---|
 | `check_payment` | Spending rules for a specific payment (same as `/v1/check-payment`) |
-| `check_endpoint` | Score, grade, verdict, advice |
+| `check_endpoint` | Score, grade, verdict, advice, and every reason behind the grade |
 | `top_endpoints` | Most trustworthy endpoints |
 | `catalog_stats` | Catalog size and verdict counts |
 | `get_full_report` | How to buy the full report |

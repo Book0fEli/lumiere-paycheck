@@ -354,6 +354,20 @@ Event kinds: `went_down`, `recovered`, `challenge_broke`, `wallet_changed`, `una
 
 **Verify every alert.** Header `x-paycheck-signature: sha256=<hex>`, where `<hex>` = HMAC-SHA256 of the raw request body, keyed with `sha256(token)` as a lowercase hex string. See [`examples/verify-webhook.ts`](../examples/verify-webhook.ts) and [`examples/verify_webhook.py`](../examples/verify_webhook.py).
 
+## `POST /v1/facilitator/screen` · Facilitator plan
+
+Pre-settlement screening for x402 facilitators. Needs a facilitator key (`pc_fac_…`) in the `x-paycheck-key` header; [get one](https://lumierepaycheck.org/facilitators). 10,000 checks a month free, then $1.50 per 1,000 checks, invoiced monthly. Testnet checks are free.
+
+Body: the same `{ paymentPayload, paymentRequirements }` a facilitator receives at `/verify` (x402 v1 or v2), or `{ payer, payTo, amount, network, resource, ref }`. Batch: `{ payments: [ … ] }`, up to 100.
+
+Returns `decision`:
+
+- `block`: the payer or payee (or the endpoint's monitored payout wallet) is on the U.S. Treasury OFAC SDN list.
+- `review`: `payTo` isn't the monitored or seller-declared wallet (possible hijack), the amount is above the quoted price, the payout wallet changed unexpectedly, or the endpoint was withdrawn.
+- `allow`: nothing found.
+
+Each result also has `block`, `review` and `info` reasons, `payer` and `payTo` screening, `endpoint` (grade and verdict, as context only: a grade never decides a payment), `sanctionsListDate`, and your `ref`. Payments aren't stored; only the count is. `GET /v1/facilitator/usage` returns this month's checks, free checks left and the estimated bill. Full guide: [/docs/facilitators](https://lumierepaycheck.org/docs/facilitators).
+
 ## Subscriptions
 
 Plan purchase, agent keys, authorization, receipts, reviews, and audit are documented in **[subscriptions.md](subscriptions.md)**.

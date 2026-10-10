@@ -70,14 +70,15 @@ Spending rules for agents. Send what you're about to pay; get allow/deny with re
     "requireMonitored": true,
     "pinPayTo": true,
     "allowUnconfirmedWallet": false,
-    "minOrganicShare": 0.5
+    "minOrganicShare": 0.5,
+    "priceTolerance": 0.02
   }
 }
 ```
 
 Amounts are atomic units (USDC has 6 decimals: `10000` = $0.01). Only `url` is required; rules have the defaults shown, except `minOrganicShare`, which is off unless you send it (0-1: the least share of the seller's 30-day volume that must come from independent buyers; see `buyerIntegrity` below). For a seller whose buyers haven't been reviewed yet, `minOrganicShare` isn't applied and a note says so.
 
-**Denies when:** the verdict is `avoid`; the verdict is `caution` and `allowCaution` is false; there isn't enough data and `requireMonitored` is true; `requireVerified` is true and no paid test has passed; the payout wallet changed unexpectedly in the last 7 days; the payout wallet changed and couldn't be confirmed as the seller's (a *reviewable* reason: `reviewable: true`, unless `allowUnconfirmedWallet` is true); `payTo` isn't one of the wallets the seller declares; `amount` exceeds `maxAmount`; `amount` is higher than the monitored price; `payTo` differs from the monitored wallet (possible hijack; skipped for `per_request` sellers, with a note); the network differs; less of the seller's volume comes from independent buyers than `minOrganicShare` (when sent).
+**Denies when:** the verdict is `avoid`; the verdict is `caution` and `allowCaution` is false; there isn't enough data and `requireMonitored` is true; `requireVerified` is true and no paid test has passed; the payout wallet changed unexpectedly in the last 7 days; the payout wallet changed and couldn't be confirmed as the seller's (a *reviewable* reason: `reviewable: true`, unless `allowUnconfirmedWallet` is true); `payTo` isn't one of the wallets the seller declares; `amount` exceeds `maxAmount`; `amount` is higher than the monitored price (beyond the allowed drift: the highest price the endpoint quoted in the last 7 days on that network, plus `priceTolerance`, default 2%, with a floor of 10 atomic units so sub-cent prices aren't flagged for rounding; amounts within the drift pass with a note); `payTo` differs from the monitored wallet (possible hijack; skipped for `per_request` sellers, with a note); the network differs; less of the seller's volume comes from independent buyers than `minOrganicShare` (when sent).
 
 **Sellers that need their own sign-in:** when our paid test was refused for want of the seller's own account, API key or wallet signature (HTTP 401/403, no money taken), the answer includes `"authRequired": true` and a note. If you have access, send `"hasAccess": true` (top level, next to `url`): `allowCaution: false` and `requireVerified` then don't block that endpoint. `POST /v1/authorize` accepts `hasAccess` too, and an agent whose allowed sellers include the endpoint's host counts as having access. `GET /v1/score` and `check_endpoint` show it as `auth: { required: true, note }`.
 

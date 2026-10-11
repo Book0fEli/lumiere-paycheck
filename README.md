@@ -227,4 +227,6 @@ How keys, payments, and data are protected, including current limitations: [SECU
 
 ## License
 
-The documentation and example code in this repository are [MIT licensed](LICENSE). The Lumière PayCheck hosted service and its source code are not part of this repository and are not covered by this license.
+The documentation, example code and packages in this repository are [MIT licensed](LICENSE). The Lumière PayCheck hosted service and its source code are not part of this repository and are not covered by this license.
+
+"Lumière PayCheck", "Lumière" and the Lumière PayCheck logo are trademarks of Lumière LLC. The MIT license covers the code, not the names or logo: forks are welcome, but please give them a different name.

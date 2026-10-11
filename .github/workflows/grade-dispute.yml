@@ -2,9 +2,15 @@ name: Grade dispute auto-reply
 on:
   issues:
     types: [opened]
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
 permissions:
   issues: write
   contents: read
+concurrency:
+  group: grade-dispute
+  cancel-in-progress: false
 jobs:
   reply:
     runs-on: ubuntu-latest
@@ -13,6 +19,6 @@ jobs:
       - uses: actions/github-script@v7
         with:
           script: |
-            const run = require('./.github/scripts/grade-dispute.js');
-            const result = await run({ github, context });
+            const bot = require('./.github/scripts/grade-dispute.js');
+            const result = context.eventName === 'issues' ? await bot({ github, context }) : await bot.sweep({ github, context });
             core.info(`grade dispute: ${result}`);

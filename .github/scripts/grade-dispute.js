@@ -70,3 +70,96 @@ module.exports = async ({ github, context, fetchImpl = fetch }) => {
 };
 
 module.exports.endpointsFrom = endpointsFrom;
+
+// ---------------------------------------------------------------------------------------------------------------
+// Follow-up (scheduled): once the queued re-test has run, post the result on the dispute and close it if resolved.
+// Progress is tracked with a label so nothing is posted twice: grade-dispute -> grade-dispute:answered.
+// Skipped: issues the maintainer has already replied on (they're handling it), and issues older than 14 days.
+const ORDER = { A: 5, B: 4, C: 3, D: 2, F: 1 };
+const hasLabel = (issue, name) => (issue.labels || []).some(l => (l.name || l) === name);
+const short = (url) => url.replace(/^https?:\/\//, "");
+const OUTCOME = {
+  delivered: "✅ delivered",
+  suspect: "⚠️ didn't deliver (first failure; confirming)",
+  bad_response: "❌ didn't deliver",
+  mismatch: "⚠️ our request didn't match what the endpoint expects (not counted)",
+};
+
+// Grades from the bot's first reply: rows like "| [host/path](...) | **B** | 85 |" (or the older one-endpoint table).
+function gradesBefore(text, urls) {
+  const out = {};
+  for (const url of urls) {
+    const esc = short(url).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const m = new RegExp(`\\|\\s*\\[?\`?${esc}\`?\\]?(?:\\([^)]*\\))?\\s*\\|\\s*\\*\\*([A-F?])\\*\\*\\s*\\|\\s*(\\d+|—)`).exec(text || "");
+    if (m) out[url] = { grade: m[1], score: m[2] };
+  }
+  if (urls.length === 1 && !out[urls[0]]) {
+    const m = /\|\s*\*\*([A-F])\*\*\s*\|\s*(\d+|—)/.exec(text || "");
+    if (m) out[urls[0]] = { grade: m[1], score: m[2] };
+  }
+  return out;
+}
+
+async function followUp({ github, repo, issue, fetchImpl, now }) {
+  const n = issue.number;
+  const urls = endpointsFrom(issue.body);
+  if (!urls.length) return "no url";
+  const comments = await github.paginate(github.rest.issues.listComments, { ...repo, issue_number: n, per_page: 100 });
+  const owner = repo.owner.toLowerCase();
+  if (comments.some(c => (c.user?.login || "").toLowerCase() === owner)) return "maintainer is handling it";
+  const first = comments.find(c => c.user?.type === "Bot" && /Here's where/.test(c.body || ""));
+  const before = gradesBefore(first?.body, urls);
+
+  const opened = Date.parse(issue.created_at);
+  const rows = [];
+  for (const url of urls) {
+    let r, j;
+    try { r = await fetchImpl(`${API}/v1/dispute?url=${encodeURIComponent(url)}`, { headers: { accept: "application/json" } }); j = await r.json(); }
+    catch { return "api unreachable"; }
+    if (r.status === 404) continue;                       // not monitored: the first reply already said so
+    if (!r.ok || typeof j.done !== "boolean") return "api not ready";
+    const asked = j.request && Date.parse(j.request.requestedAt) >= opened - 24 * 3600_000;
+    if (!asked) continue;                                 // no re-test was queued for this issue (the first reply said why)
+    if (!j.done) return "re-test still running";
+    const ran = j.lastPaidTest && Date.parse(j.lastPaidTest.at) >= Date.parse(j.request.requestedAt);
+    rows.push({ url, j, outcome: ran ? j.lastPaidTest.outcome : null, before: before[url] });
+  }
+  if (!rows.length) return "nothing to report";
+  if (now - opened > 14 * 86400_000) return "too old";
+
+  const delivered = rows.every(x => x.outcome === "delivered");
+  const fixed = delivered && rows.every(x => x.j.grade === "A" || (x.before && ORDER[x.j.grade] > (ORDER[x.before.grade] || 0)));
+  const one = rows.length === 1;
+  const lines = [
+    fixed ? `✅ **The re-test is done${one ? "" : " for every endpoint"} and the grade has been updated.**`
+      : delivered && rows.some(x => x.j.listingCapped) ? "The re-test delivered, but the response still doesn't match the example in the listing, so the grade stays capped at B. The endpoint page shows which fields differ."
+      : delivered ? "The re-test delivered, but the grade didn't change. The maintainer will take a look."
+      : `The re-test is done. Here's what it found:`,
+    "",
+    "| Endpoint | Grade before | Grade now | Score | Verdict | Re-test |",
+    "|---|---|---|---|---|---|",
+    ...rows.map(({ url, j, outcome, before }) => `| [${short(url)}](${j.page}) | ${before ? before.grade : "—"} | **${j.grade}** | ${j.score ?? "—"} | ${j.verdict ?? "—"} | ${outcome ? (OUTCOME[outcome] || outcome) : "couldn't run (not counted)"} |`),
+    "",
+  ];
+  if (rows.some(x => !x.outcome)) lines.push("A re-test that couldn't run (endpoint unreachable, price changed, or our daily test budget) never counts against the grade.", "");
+  lines.push(fixed ? "Closing this out. If anything looks off again, open a new dispute anytime."
+                   : "If you fix something on your side, reply here and the maintainer will queue another re-test.",
+             "", "_This reply was generated automatically._");
+  await github.rest.issues.createComment({ ...repo, issue_number: n, body: lines.join("\n") });
+  await github.rest.issues.addLabels({ ...repo, issue_number: n, labels: ["grade-dispute:answered"] }).catch(() => {});
+  if (fixed) await github.rest.issues.update({ ...repo, issue_number: n, state: "closed", state_reason: "completed" });
+  return fixed ? "answered and closed" : "answered";
+}
+
+module.exports.sweep = async ({ github, context, fetchImpl = fetch, now = Date.now() }) => {
+  const repo = context.repo;
+  const issues = await github.paginate(github.rest.issues.listForRepo, { ...repo, state: "open", labels: "grade-dispute", per_page: 100 });
+  const done = [];
+  for (const issue of issues) {
+    if (issue.pull_request || hasLabel(issue, "grade-dispute:answered")) continue;
+    try { done.push(`#${issue.number}: ${await followUp({ github, repo, issue, fetchImpl, now })}`); }
+    catch (e) { done.push(`#${issue.number}: error ${e?.message || e}`); }
+  }
+  return `${issues.length} open. ${done.join("; ")}`;
+};
+module.exports.gradesBefore = gradesBefore;

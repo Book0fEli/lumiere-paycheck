@@ -205,7 +205,7 @@ Every monitored endpoint has a public page and a badge that updates on its own:
 
 **Declare your payout wallets** so a rotation is never mistaken for a hijack, and a hijack is caught on the first check: publish `{"payTo": ["0xYourWallet"]}` at `https://<your-host>/.well-known/paycheck.json` (or a DNS TXT record at `_paycheck.<your-host>`: `payto=0xYourWallet`), then `POST /v1/declaration` with your endpoint URL. [Details](docs/api.md#declaring-your-wallets-sellers).
 
-Think a grade is wrong? [Open a Grade dispute](../../issues/new/choose) with the endpoint URL. A bot replies within a minute with the endpoint's current score and failure log, and queues a paid re-test automatically.
+Think a grade is wrong? [Open a Grade dispute](../../issues/new/choose) with the endpoint URL. A bot replies within a minute with the endpoint's current score and failure log, and queues a paid re-test automatically. When the re-test has run, the bot posts the result (grade before and after) and closes the issue if the grade is fixed.
 
 ## Independence
 

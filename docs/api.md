@@ -406,6 +406,10 @@ Daily usage totals for the last 30 days: `{ days: [{ date, visitors, pageviews, 
 
 Request a paid re-test of an endpoint's grade: `{ "url": "https://api.example.com/x" }`. Once per endpoint per 24 hours. Returns the current score and links to the endpoint page and failure log. Opening a **Grade dispute** issue in this repo calls this for you and posts the result automatically.
 
+## `GET /v1/dispute?url=` · free
+
+Whether the latest re-test request for an endpoint has run: `request` (`requestedAt`, `doneAt`), `pending` (any paid re-test still waiting, including the confirm re-test after a first failure), `done`, `lastPaidTest` (`at`, `outcome`), and the current `grade`, `score`, `verdict` and `listingCapped`. The dispute bot uses it to post the re-test result on the issue (grade before and after) and close the issue when the grade is fixed.
+
 ## Seller-funded tests (endpoints above $0.05)
 
 Our tester pays up to $0.05 per call on its own. A pricier endpoint stays C (unconfirmed) until someone funds one paid test of it, normally its seller. The money goes in a circle: you pay us the endpoint's own price, our tester pays the endpoint that same price (back to its payout wallet), and the grade comes only from what the test finds. The endpoint page notes the test was seller-funded.

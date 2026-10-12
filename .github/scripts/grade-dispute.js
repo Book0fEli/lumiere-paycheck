@@ -133,7 +133,7 @@ async function followUp({ github, repo, issue, fetchImpl, now }) {
       for (const { url, b } of blocked) {
         lines.push(`⏸️ **The free re-test for \`${short(url)}\` ${b.reason === "price_above_test_cap" ? "can't run" : "is waiting"}.** ${b.message}`, "");
         if (b.fund) lines.push(
-          `**To get it tested now,** fund one paid test at the endpoint's own price (**${b.fund.price}** in USDC on Base). Our tester then pays your endpoint that same amount, so the money goes back to your payout wallet. Send one x402 payment with any x402 client:`,
+          `**To get it tested now,** fund one paid test at the endpoint's own price (**${b.fund.price}** in USDC on Base). It's paid to our tester wallet and held for this test; the tester pays your endpoint that same amount, so the money goes back to your payout wallet, and anything the test doesn't spend is returned to you. Send one x402 payment with any x402 client:`,
           "", "```", `POST ${b.fund.payUrl}&issue=${n}`, "```", "",
           "The test runs at a random time within about 3 hours of funding. I'll post the result here, and close this issue if the grade is fixed.", "");
         else if (b.fundUnavailable) lines.push(`A funded test isn't available for this endpoint (${String(b.fundUnavailable).replace(/^[a-z_]+: /, "")}), so the free re-test will run as soon as the weekly total allows.`, "");

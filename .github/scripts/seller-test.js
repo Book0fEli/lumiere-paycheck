@@ -71,9 +71,11 @@ exports.onOpened = async ({ github, context, fetchImpl = fetch }) => {
     payInstructions(b, n),
     "",
     "**What happens next**",
-    "- Our tester pays your endpoint the same price at a random time within about 3 hours, so the money goes back to your payout wallet.",
-    "- The grade comes only from what the test finds, pass or fail. The endpoint page notes that the test was funded by the seller.",
-    "- If the test can't run within 3 days (endpoint down, or the price went up), the funding is refunded automatically to the wallet that paid.",
+    "- Your payment goes to our tester wallet and is held for this test only: our free tests can't spend it.",
+    "- Our tester pays your endpoint the same price at a random time within about 3 hours, so the money goes back to your payout wallet. Anything the test doesn't spend (your price dropped, or your endpoint answered without charging) is returned to the wallet that paid.",
+    "- The grade comes only from what the test finds, pass or fail. Every funded test and its result is listed on your endpoint's page.",
+    "- If the test can't run within 3 days (endpoint down, or the price went up), the whole funding is refunded automatically to the wallet that paid.",
+    "- You can fund another test whenever you like (one waiting per endpoint at a time).",
     "- If no payment arrives within 7 days, this issue closes on its own.",
     "",
     `More: ${DOCS}`,
@@ -97,6 +99,7 @@ function resultComment(t, score) {
     "",
   ];
   if (t.detail) lines.push(`Details: ${String(t.detail).slice(0, 400)}`, "");
+  if (t.spent) lines.push(`Your funding: ${t.amount}. The test spent ${t.spent}${t.unspentReturned ? `; the unspent ${t.unspentReturned} is being returned to the wallet that paid${t.refundTx ? ` (tx [\`${String(t.refundTx).slice(0, 10)}…\`](https://basescan.org/tx/${t.refundTx}))` : ""}` : ""}.`, "");
   if (first) lines.push("A first failure only counts if a second test within 24 hours fails too. If you fix the issue, you can fund another test right away by opening a new seller test; if it delivers, the grade updates.", "");
   lines.push(`Endpoint page (with the full test history): ${t.page}`, "", "_This reply was generated automatically._");
   return lines.join("\n");

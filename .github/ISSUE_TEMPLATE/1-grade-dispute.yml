@@ -9,7 +9,11 @@ body:
         Thanks for checking. Before filing, open the endpoint's page (lumierepaycheck.org/e?url=...) and look at
         **Recent failed checks**: it lists every failed check with a UTC timestamp and whether it counts.
         Checks where our monitor was rate-limited, blocked by a firewall, or hit a network we don't support never count.
-        When you submit, a bot replies automatically with the current score and queues a paid re-test.
+        When you submit, a bot replies automatically with the current score and queues a paid re-test. When the re-test has run,
+        it posts the result here (grade before and after) and closes the issue if the grade is fixed.
+        Free re-tests cover endpoints priced at $0.05 or less per call. For pricier endpoints, or if a free re-test is held by a limit,
+        the bot posts a link to fund a test at your endpoint's own price (the money goes back to your payout wallet).
+        Rules and limits: https://lumierepaycheck.org/docs/sellers#5-if-you-think-a-grade-is-wrong
   - type: input
     id: endpoint
     attributes:

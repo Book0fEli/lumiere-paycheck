@@ -131,14 +131,16 @@ async function followUp({ github, repo, issue, fetchImpl, now }) {
     if (blocked.length && !hasLabel(issue, "grade-dispute:blocked")) {
       const lines = [];
       for (const { url, b } of blocked) {
-        lines.push(`⏸️ **The free re-test for \`${short(url)}\` is waiting.** ${b.message}`, "");
+        lines.push(`⏸️ **The free re-test for \`${short(url)}\` ${b.reason === "price_above_test_cap" ? "can't run" : "is waiting"}.** ${b.message}`, "");
         if (b.fund) lines.push(
           `**To get it tested now,** fund one paid test at the endpoint's own price (**${b.fund.price}** in USDC on Base). Our tester then pays your endpoint that same amount, so the money goes back to your payout wallet. Send one x402 payment with any x402 client:`,
           "", "```", `POST ${b.fund.payUrl}&issue=${n}`, "```", "",
           "The test runs at a random time within about 3 hours of funding. I'll post the result here, and close this issue if the grade is fixed.", "");
         else if (b.fundUnavailable) lines.push(`A funded test isn't available for this endpoint (${String(b.fundUnavailable).replace(/^[a-z_]+: /, "")}), so the free re-test will run as soon as the weekly total allows.`, "");
       }
-      lines.push("If you don't fund one, the free re-test still runs on its own once the limit allows, and the result is posted here.", "", "_This reply was generated automatically._");
+      if (blocked.some(x => x.b.reason === "wallet_weekly_cap")) lines.push("If you don't fund one, the free re-test still runs on its own once the limit allows, and the result is posted here.", "");
+      else lines.push("This issue stays open until a funded test runs; its result is posted here automatically.", "");
+      lines.push("_This reply was generated automatically._");
       await github.rest.issues.createComment({ ...repo, issue_number: n, body: lines.join("\n") });
       await github.rest.issues.addLabels({ ...repo, issue_number: n, labels: ["grade-dispute:blocked"] }).catch(() => {});
       return "blocked: offered a funded test";

@@ -111,7 +111,8 @@ async function followUp({ github, repo, issue, fetchImpl, now }) {
   const before = gradesBefore(first?.body, urls);
 
   const opened = Date.parse(issue.created_at);
-  const rows = [];
+  const rows = [], blocked = [];
+  let waiting = false;
   for (const url of urls) {
     let r, j;
     try { r = await fetchImpl(`${API}/v1/dispute?url=${encodeURIComponent(url)}`, { headers: { accept: "application/json" } }); j = await r.json(); }
@@ -120,12 +121,31 @@ async function followUp({ github, repo, issue, fetchImpl, now }) {
     if (!r.ok || typeof j.done !== "boolean") return "api not ready";
     const asked = j.request && Date.parse(j.request.requestedAt) >= opened - 24 * 3600_000;
     if (!asked) continue;                                 // no re-test was queued for this issue (the first reply said why)
-    if (!j.done) return "re-test still running";
+    if (!j.done) { waiting = true; if (j.blocked) blocked.push({ url, b: j.blocked }); continue; }
     const ran = j.lastPaidTest && Date.parse(j.lastPaidTest.at) >= Date.parse(j.request.requestedAt);
     rows.push({ url, j, outcome: ran ? j.lastPaidTest.outcome : null, before: before[url] });
   }
-  if (!rows.length) return "nothing to report";
   if (now - opened > 14 * 86400_000) return "too old";
+  if (waiting) {
+    // A free re-test blocked for days by the weekly wallet limit: say so once, with a way to get it tested now.
+    if (blocked.length && !hasLabel(issue, "grade-dispute:blocked")) {
+      const lines = [];
+      for (const { url, b } of blocked) {
+        lines.push(`⏸️ **The free re-test for \`${short(url)}\` is waiting.** ${b.message}`, "");
+        if (b.fund) lines.push(
+          `**To get it tested now,** fund one paid test at the endpoint's own price (**${b.fund.price}** in USDC on Base). Our tester then pays your endpoint that same amount, so the money goes back to your payout wallet. Send one x402 payment with any x402 client:`,
+          "", "```", `POST ${b.fund.payUrl}&issue=${n}`, "```", "",
+          "The test runs at a random time within about 3 hours of funding. I'll post the result here, and close this issue if the grade is fixed.", "");
+        else if (b.fundUnavailable) lines.push(`A funded test isn't available for this endpoint (${String(b.fundUnavailable).replace(/^[a-z_]+: /, "")}), so the free re-test will run as soon as the weekly total allows.`, "");
+      }
+      lines.push("If you don't fund one, the free re-test still runs on its own once the limit allows, and the result is posted here.", "", "_This reply was generated automatically._");
+      await github.rest.issues.createComment({ ...repo, issue_number: n, body: lines.join("\n") });
+      await github.rest.issues.addLabels({ ...repo, issue_number: n, labels: ["grade-dispute:blocked"] }).catch(() => {});
+      return "blocked: offered a funded test";
+    }
+    return "re-test still running";
+  }
+  if (!rows.length) return "nothing to report";
 
   const delivered = rows.every(x => x.outcome === "delivered");
   const fixed = delivered && rows.every(x => x.j.grade === "A" || (x.before && ORDER[x.j.grade] > (ORDER[x.before.grade] || 0)));

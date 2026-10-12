@@ -408,7 +408,7 @@ Request a paid re-test of an endpoint's grade: `{ "url": "https://api.example.co
 
 ## `GET /v1/dispute?url=` · free
 
-Whether the latest re-test request for an endpoint has run: `request` (`requestedAt`, `doneAt`), `pending` (any paid re-test still waiting, including the confirm re-test after a first failure), `done`, `lastPaidTest` (`at`, `outcome`), and the current `grade`, `score`, `verdict` and `listingCapped`. The dispute bot uses it to post the re-test result on the issue (grade before and after) and close the issue when the grade is fixed.
+Whether the latest re-test request for an endpoint has run: `request` (`requestedAt`, `doneAt`), `pending` (any paid re-test still waiting, including the confirm re-test after a first failure), `done`, `lastPaidTest` (`at`, `outcome`), and the current `grade`, `score`, `verdict` and `listingCapped`. When the free re-test is held by the weekly per-wallet limit on re-tests anyone can request, `blocked` says so and, if the endpoint can be funded, includes `fund` (`price`, `payUrl`). The dispute bot uses it to post the re-test result on the issue (grade before and after), to offer a funded test when the free one is held, and to close the issue when the grade is fixed.
 
 ## Seller-funded tests (endpoints above $0.05)
 
@@ -418,7 +418,7 @@ Our tester pays up to $0.05 per call on its own. A pricier endpoint stays C (unc
 - `POST /v1/seller-test?url=<endpoint>&issue=<n>` · x402, priced at the endpoint's current quote (USDC on Base): funds one test. Returns `201` with the test's `id` and `statusUrl`. Ineligible requests are refused before settlement and never charged.
 - `GET /v1/seller-test/<id>` and `GET /v1/seller-tests?issue=<n>|url=<endpoint>` · free: status (`queued`, `done`, `refund_due`, `refunded`), outcome and details.
 
-The test runs at a random time 20 minutes to 3 hours after funding, capped at the funded amount and outside our daily test budget. One per endpoint per 30 days (sooner after a price or payout-wallet change, or within 24 hours of a first failure). If it can't run within 3 days, the funding is refunded to the wallet that paid. Opening a **Seller test** issue in this repo walks you through it and posts the result automatically.
+The test runs at a random time 20 minutes to 3 hours after funding, capped at the funded amount and outside our daily test budget. One per endpoint per 30 days (sooner after a price or payout-wallet change, within 24 hours of a first failure, or while a grade dispute for the endpoint is waiting; a funded test that runs answers that dispute). If it can't run within 3 days, the funding is refunded to the wallet that paid. Opening a **Seller test** issue in this repo walks you through it and posts the result automatically.
 
 ## `POST /v1/report` · free (anyone who paid)
 

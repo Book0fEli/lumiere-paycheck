@@ -13,6 +13,13 @@ function endpointsFrom(body) {
   return [...new Set(found)].slice(0, MAX_URLS);
 }
 
+// The "Re-test" column: queued, not needed (and why, in the text below), or already asked for today.
+function retestCell(j) {
+  if (j.queued) return "✅ queued";
+  if (j.retestNeeded === false) return ({ uptime: "not needed: uptime, clears on its own", passing: "not needed: already passing", wallet: "not needed: wallet change", withdrawn: "not needed: withdrawn", strikes: "seller-funded test needed" })[j.why] || "not needed (see below)";
+  return "already requested in the last 24h";
+}
+
 module.exports = async ({ github, context, fetchImpl = fetch }) => {
   const issue = context.payload.issue;
   // Seller-funded test requests share the "Endpoint URL" field; seller-test.js handles those.
@@ -52,24 +59,35 @@ module.exports = async ({ github, context, fetchImpl = fetch }) => {
     "",
     `| Endpoint | Grade | Score | Verdict | 7-day uptime | Paid delivery | Re-test |`,
     `|---|---|---|---|---|---|---|`,
-    ...monitored.map(({ url, j }) => `| [${url.replace(/^https?:\/\//, "")}](${j.page || `${API}/e?url=${encodeURIComponent(url)}`}) | **${j.grade ?? "?"}** | ${j.score ?? "—"} | ${j.verdict ?? "—"} | ${j.uptimePct ?? "—"}% | ${j.delivery ?? "—"} | ${j.queued ? "✅ queued" : "already requested in the last 24h"} |`),
+    ...monitored.map(({ url, j }) => `| [${url.replace(/^https?:\/\//, "")}](${j.page || `${API}/e?url=${encodeURIComponent(url)}`}) | **${j.grade ?? "?"}** | ${j.score ?? "—"} | ${j.verdict ?? "—"} | ${j.uptimePct ?? "—"}% | ${j.delivery ?? "—"} | ${retestCell(j)} |`),
     "",
-    "Results usually appear within a few hours. Each endpoint's page shows its **Recent paid tests** (what came back, whether money was taken, and whether it counted) and its free checks with UTC timestamps.",
   ];
+  const anyQueued = monitored.some(x => x.j.queued);
+  const notNeeded = monitored.filter(x => x.j.retestNeeded === false);
+  if (anyQueued) lines.push("Results usually appear within a few hours. Each endpoint's page shows its **Recent paid tests** (what came back, whether money was taken, and whether it counted) and its free checks with UTC timestamps.");
+  // No paid re-test when it can't change the grade (old downtime, a wallet change, already passing): say why, plainly.
+  if (notNeeded.length) {
+    if (anyQueued) lines.push("");
+    lines.push(notNeeded.length === 1 && one ? "**Why there's no paid re-test:**" : "**Why some endpoints get no paid re-test:**", "");
+    for (const { url, j } of notNeeded) lines.push(`- ${one ? "" : `\`${url}\`: `}${j.note || "A paid test can't change this grade."}`);
+    lines.push("", "Each endpoint's page lists its free checks with UTC timestamps under **Recent failed checks**.");
+  }
   if (missing.length) lines.push("", `Not in the monitored catalog (no grade yet): ${missing.map(x => `\`${x.url}\``).join(", ")}.`);
   if (results.some(x => x.status === 0)) lines.push("", "Some endpoints couldn't be checked just now; the maintainer will follow up.");
   lines.push(
     "",
-    "Checks where our monitor was rate-limited, blocked by a firewall, or couldn't read the payment network never count against an endpoint, and a failed paid check only counts if a re-test about two hours later fails too. If something still looks wrong after the re-test, reply here with timestamps from your own logs.",
+    "Checks where our monitor was rate-limited, blocked by a firewall, or couldn't read the payment network never count against an endpoint, and a failed paid check only counts if a re-test about two hours later fails too. " +
+      (anyQueued ? "If something still looks wrong after the re-test, reply here with timestamps from your own logs." : "If you think a check was counted by mistake, reply here with timestamps from your own logs and the maintainer will look."),
     "",
     "_This reply was generated automatically._",
   );
   await say(lines.join("\n"));
   try { await github.rest.issues.addLabels({ ...context.repo, issue_number: issue.number, labels: ["grade-dispute"] }); } catch { /* label optional */ }
-  return monitored.some(x => x.j.queued) ? "queued" : "already queued";
+  return anyQueued ? "queued" : notNeeded.length ? "not needed" : "already queued";
 };
 
 module.exports.endpointsFrom = endpointsFrom;
+module.exports.retestCell = retestCell;
 
 // ---------------------------------------------------------------------------------------------------------------
 // Follow-up (scheduled): once the queued re-test has run, post the result on the dispute and close it if resolved.

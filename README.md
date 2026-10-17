@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="assets/1-homepage.png" alt="Lumière PayCheck homepage" width="820">
+  <img src="assets/1-homepage.png" alt="Lumière PayCheck homepage: check an x402 endpoint before you pay it, next to Lumière Agents" width="820">
 </p>
 
 # Lumière PayCheck
@@ -27,8 +27,8 @@ Lumière PayCheck answers those questions. It monitors every endpoint listed in 
 - **Monitors every endpoint in the x402 Bazaar** (the badge above shows the live count, which grows as new endpoints are listed) every 30 minutes: price quote, payout wallet, uptime, response time.
 - **Flags hijack risk, without punishing normal rotations.** Every payout-wallet change is checked against the seller's own wallet declaration, the seller's earlier wallets, and direct transfers between the old and new wallet. Confirmed rotations don't affect the grade; unexplained changes are `avoid`, then `caution` with human review. Sellers that use a new address per request are recognized automatically. [How it works](docs/api.md#payout-wallet-changes).
 - **Spending rules for agents.** Before paying, an agent asks "may I pay *this* endpoint *this* amount to *this* wallet?" and gets allow or deny with reasons.
-- **Plans for teams (new).** Scoped agent keys, daily/monthly spend limits, signed receipts your wallet verifies before paying, a replayable audit trail, and human review for anomalies. [Details](docs/subscriptions.md).
-- **Identity and access for agents that pay (new).** Like Entra ID and Intune, for AI agents:
+- **Plans for teams.** Scoped agent keys, daily/monthly spend limits, signed receipts your wallet verifies before paying, a replayable audit trail, and human review for anomalies. [Details](docs/subscriptions.md).
+- **Identity and access for agents that pay.** Like Entra ID and Intune, for AI agents:
 
   | Feature | What it does | Plans |
   |---|---|---|
@@ -40,6 +40,8 @@ Lumière PayCheck answers those questions. It monitors every endpoint listed in 
   | SSO and SCIM | Sign in with Entra ID, Okta or Google Workspace; people provisioned automatically | Enterprise |
 
   [API](docs/api.md#agent-identity-and-access-v152) · [Administrator guide](https://lumierepaycheck.org/docs/admin-guide)
+- **Screening for facilitators.** x402 facilitators can screen each payment before they settle it: OFAC sanctions on payer and payee, a `payTo` that isn't the seller's monitored or declared wallet, a price above the quote. 10,000 checks a month free. [Details](docs/api.md#post-v1facilitatorscreen--facilitator-plan).
+- **Wallet risk.** Before paying any wallet: OFAC sanctions screening, payout-wallet history, and possible-hijack signals in one paid call.
 - **Alerts.** Watch an endpoint and get signed webhook alerts when it breaks, changes wallet, or raises its price.
 - **Paid delivery checks:** small real payments that confirm an endpoint returns what it advertises. A failure only counts if a re-test about two hours later fails too, and requests an endpoint rejects for missing input never count.
 - **Known-answer tests: values, not just shape.** Uptime and schema checks can pass while an API returns the wrong number. For endpoints with a knowable answer, the verifier pays for a call with a known correct result, or compares against an independent live source, and checks the value itself. Sellers can add their own tests. [How it works](docs/api.md#known-answer-tests).
@@ -116,21 +118,27 @@ More in [`examples/`](examples): TypeScript, Python, curl, webhook and receipt v
 | `GET /v1/leaderboard?limit=` | Free | Top-rated endpoints (no wallet incidents) |
 | `GET /v1/stats` | Free | Catalog size and verdict counts |
 | `GET /v1/operators?limit=` | Free | Sellers grouped by domain |
+| `GET /v1/usage?url=&days=` | Free | Real on-chain usage for one endpoint: volume, buyers, trend |
 | `GET /v1/failures?url=` | Free | Every failed check in the last 7 days: time, result, HTTP status, and whether it counts |
 | `GET /v1/wallet-changes?url=` | Free | Payout-wallet changes in the last 7 days and what the review found (declaration, seller history, on-chain link) |
 | `POST /v1/declaration` | Free | Sellers: have your declared payout wallets read now |
+| `POST /v1/report` | Free | Buyer report after paying (with a receipt or the payment tx) |
+| `POST /v1/dispute` · `GET /v1/dispute?url=` | Free | Sellers: dispute a grade, or see a dispute's status |
 | `GET /e?url=` | Free | Public page for one endpoint, including its failed-check log |
 | `GET /badge?url=` | Free | Embeddable SVG badge |
+| `GET /v1/monitor` | Free | Monitor health: what the last cycle saw, including which hosts blocked us |
+| `GET /v1/status` | Free | Live service status and 90-day uptime |
 | `GET /v1/report?url=` | $0.005 | Full report: score breakdown, current quote, wallet and price history |
+| `GET /v1/wallet-risk?address=` | $0.01 | Wallet risk before paying any wallet: OFAC sanctions, payout-wallet history, possible hijack |
 | `POST /v1/score/batch` | $0.01 | Score up to 100 endpoints in one call |
 | `POST /v1/watch` | $0.10 | 30 days of signed webhook alerts for one endpoint |
-| `GET /v1/failures?url=` | Free | Every failed check in the last 7 days, and whether it counts |
-| `GET /v1/monitor` | Free | Monitor health: what the last cycle saw, including which hosts blocked us |
+| `POST /v1/seller-test` | The endpoint's price | Sellers: fund a paid re-test for an endpoint priced above $0.05 ([details](docs/api.md#seller-funded-tests-endpoints-above-005)) |
 | `GET /v1/plans` | Free | Plan catalog |
 | `POST /v1/plans/builder` · `/business` | $9 · $49 | Buy, renew, or upgrade a plan with USDC (x402). Card: [/subscribe](https://lumierepaycheck.org/subscribe) |
 | `POST /v1/authorize` | Plan | Authorize a payment with an agent key: allow / deny / review + signed receipt |
+| `POST /v1/facilitator/screen` | Facilitator plan | Pre-settlement screening for x402 facilitators (10,000 checks/month free, then $1.50 per 1,000) |
 
-Free routes allow 60 requests per minute per client, or 300 with a [free API key](https://lumierepaycheck.org/free-key) sent in the `x-paycheck-key` header. Paid routes use x402 on **Base mainnet** (USDC). Lookups for endpoints we don't monitor return 404 and are **never charged**. Full reference: [`docs/api.md`](docs/api.md).
+Free routes allow 60 requests per minute per client, or 300 with a [free API key](https://lumierepaycheck.org/free-key) sent in the `x-paycheck-key` header. The MCP server allows 300 tool calls per minute. Paid routes use x402 with USDC on **Base or Solana** (same price on both; on Solana the facilitator pays the fee). Lookups for endpoints we don't monitor return 404 and are **never charged**. Full reference: [`docs/api.md`](docs/api.md).
 
 ## Plans for teams running agents
 
@@ -146,7 +154,7 @@ Free checks stay free. Plans add **authorization** for agents that spend money:
 | Human review for anomalies (new wallets, large amounts) | — | ✅ | ✅ |
 
 <p align="center">
-  <img src="assets/5-subscribe.png" alt="Subscribe page: Builder $9/month, Business $49/month, Enterprise custom" width="820">
+  <img src="assets/5-subscribe.png" alt="Subscribe page: Business trial, setup service, Builder $9/month, Business $49/month, Enterprise custom" width="820">
 </p>
 
 **Try Business free for 30 days** at [lumierepaycheck.org/trial](https://lumierepaycheck.org/trial): just an email, no card. Continue and your workspace and keys carry over; don't, and your agents keep the free allow/deny check.
@@ -154,6 +162,8 @@ Free checks stay free. Plans add **authorization** for agents that spend money:
 **Subscribe on the website with a card** at [lumierepaycheck.org/subscribe](https://lumierepaycheck.org/subscribe): billed monthly by Stripe, cancel anytime, and your account is set up automatically. Then manage everything (agent keys, limits, approvals, billing) at [lumierepaycheck.org/account](https://lumierepaycheck.org/account). Developers can also pay with USDC via x402 (prepaid 30 days, no auto-renewal).
 
 The agent calls `POST /v1/authorize` before every payment and gets **allow**, **deny**, or **review**, with reasons. On allow it gets an Ed25519-signed receipt bound to that exact payment, and [`examples/guarded-pay.ts`](examples/guarded-pay.ts) shows a payer that refuses to sign without one. Every decision can be replayed later to prove why it was made.
+
+**Want it set up for you?** The [setup service](https://lumierepaycheck.org/setup) ($750 one-time) configures your agents, limits and approval rules, runs them for a 7-day watch-only week so nothing is blocked by surprise, then hands them over with a guide for your team. An optional monthly review is $250/month.
 
 **Full guide:** [docs/subscriptions.md](docs/subscriptions.md) · **Subscribe:** [lumierepaycheck.org/subscribe](https://lumierepaycheck.org/subscribe) · **Pay with USDC:** [`examples/subscribe.ts`](examples/subscribe.ts)
 
@@ -206,6 +216,39 @@ Every monitored endpoint has a public page and a badge that updates on its own:
 **Declare your payout wallets** so a rotation is never mistaken for a hijack, and a hijack is caught on the first check: publish `{"payTo": ["0xYourWallet"]}` at `https://<your-host>/.well-known/paycheck.json` (or a DNS TXT record at `_paycheck.<your-host>`: `payto=0xYourWallet`), then `POST /v1/declaration` with your endpoint URL. [Details](docs/api.md#declaring-your-wallets-sellers).
 
 Think a grade is wrong? [Open a Grade dispute](../../issues/new/choose) with the endpoint URL. A bot replies within a minute with the endpoint's current score and failure log, and queues a paid re-test automatically. When the re-test has run, the bot posts the result (grade before and after) and closes the issue if the grade is fixed. Free re-tests cover endpoints priced at $0.05 or less; for pricier ones the bot posts a link to fund a test at the endpoint's own price. Rules and limits: [seller guide](https://lumierepaycheck.org/docs/sellers#5-if-you-think-a-grade-is-wrong).
+
+## Lumière Agents
+
+<p align="center">
+  <img src="assets/8-agents-site.png" alt="Lumière Agents: five agents that chase what your business is owed" width="820">
+</p>
+
+**From the team behind PayCheck: done-for-you follow-up for small businesses.** [agents.lumierepaycheck.org](https://agents.lumierepaycheck.org)
+
+Most small businesses aren't short on work; they're short on follow-up. Lumière Agents does the chasing, in the owner's name and voice:
+
+| Agent | What it does |
+|---|---|
+| **Invoice chaser** | Polite reminders 1, 7 and 14 days after the due date, one statement per customer, from the business's own email address. Understands replies ("paid", "check's in the mail", "we'll pay Friday", a dispute) and hands the rest to the owner. |
+| **Quote follow-up** | Friendly check-ins 2, 5 and 12 days after each quote. Any reply stops it and goes straight to the owner; a revised quote restarts it. |
+| **Missed-call text-back** | Every missed caller gets a text from the business's own number within a minute (9am–8pm), with the booking link and a hand-off to the owner. |
+| **Paperwork chaser** | Collects subcontractors' insurance certificates through an upload link, checks them against the owner's checklist, and asks for renewals before they expire. |
+| **Receipt chaser** | Every Monday, asks whoever holds the company card for the missing receipts (a phone photo is enough) and files them; the bookkeeper gets a monthly copy. |
+
+**How it stays safe**
+
+- **You approve every email at first.** Each agent has an "Approve before sending" / "Send automatically" switch the owner can flip any time.
+- **Facts come from your books, not the AI.** Amounts, invoice numbers and dates are inserted by code; the AI only writes the wording, and a draft with made-up numbers or pressure is replaced by a plain template.
+- **Polite by design.** Business hours only, no US holidays, weekly limits per contact, STOP and unsubscribe always work, and nothing is sent to someone who asked to stop.
+- **Your accounts stay yours.** Works with QuickBooks (read-only) or any spreadsheet; emails come from your own address and texts from your own Twilio number. Each client's data is walled off in the database and stored files are encrypted.
+
+<p align="center">
+  <img src="assets/7-lumiere-agents.png" alt="Lumière Agents section on lumierepaycheck.org with the five agents and pricing" width="820">
+</p>
+
+**Pricing:** one agent $200/month + $750 setup; each extra agent $100/month + $400 setup; all five $500/month + $2,000 setup. Cancel any time. [Guides](https://agents.lumierepaycheck.org/docs) · [Get started](https://agents.lumierepaycheck.org/start)
+
+Lumière Agents is a separate, hosted product from Lumière LLC; its code isn't in this repository.
 
 ## Independence
 

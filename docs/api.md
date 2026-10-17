@@ -473,6 +473,8 @@ Errors: an unknown tool, a missing or non-object `arguments`, or a malformed req
 
 Free routes: 60 requests/minute per client, with `ratelimit-limit`, `ratelimit-remaining`, and `retry-after` headers. Over the limit → `429`. For volume, use `/v1/score/batch`.
 
+**MCP:** `/mcp` has its own budget, separate from the REST routes: 300 tool calls per minute per IP (per key when you connect with an agent or free key). Only `tools/call` counts; listing tools, prompts and resources is free. Over the limit, the tool call returns a JSON-RPC error saying when to retry.
+
 **Free API key:** 300 requests/minute instead of 60. Request one with your email and it's emailed to you (optionally with the weekly x402 trust digest), then send it in the `x-paycheck-key` header. Requesting a new key replaces the old one.
 
 ```bash

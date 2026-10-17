@@ -9,7 +9,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 
 const API = (process.env.LUMIERE_PAYCHECK_URL || "https://lumierepaycheck.org").replace(/\/+$/, "");
-const VERSION = "1.1.0";
+const VERSION = "1.1.1";
 const D = {
   "check_endpoint": "Get the trust verdict for one x402 endpoint: score (0-100), grade (A-F), and verdict (proceed, caution, avoid, free, or insufficient_data), plus uptime, delivery-test status, payout-wallet incidents, and how many independent buyers stand behind the seller's buyer wallets (we count customers, not wallets). Use it when you're deciding whether an endpoint is trustworthy at all, before you have a price quote. When you already have the 402 quote (amount and payTo) and are about to pay, use check_payment instead: it runs this same check and also verifies the price and wallet. To discover good endpoints rather than check a known one, use top_endpoints. Read-only and free; reflects monitoring every 30 minutes and real test payments, so a brand-new endpoint may return insufficient_data. Endpoints not in the catalog return monitored: false. API docs: https://github.com/Book0fEli/lumiere-paycheck/blob/main/docs/api.md",
   "check_payment": "Decide whether a specific x402 payment should go through: returns allow true/false with reasons. Checks the endpoint's trust verdict, that the amount is within your cap and not above the monitored price, and that the payTo wallet matches the one we've observed (catches swapped or hijacked wallets). Optionally (minOrganicShare) it also requires that enough of the seller's volume comes from independent buyers. Intended for right before a payment, with the amount, payTo, and network from the endpoint's 402 quote; allow is true only when every rule passes. Use check_endpoint instead if you only want an endpoint's grade without a quote in hand. Read-only and free; it doesn't make or block the payment itself. When allow is false, the reasons list explains why. API docs: https://github.com/Book0fEli/lumiere-paycheck/blob/main/docs/api.md",
@@ -100,9 +100,11 @@ server.registerTool("report_outcome", {
   },
   annotations: { title: "Report how a paid x402 call went", readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
 }, async (a) => {
-  if (!a.receipt && !a.tx) return out({ accepted: false, reason: "send the receipt from an allow decision, or the endpoint url plus the payment tx" }, true);
+  // A report without proof isn't a failure of the tool: answer how to report (same as the hosted server).
+  if (!a.receipt && !a.tx) return out({ accepted: false, reason: "send the receipt from an allow decision, or the endpoint url plus the payment tx" });
   const r = await call("POST", "/v1/report", a);
-  return out(r.data, r.status !== 200);
+  // A rejected report (bad tx, duplicate, not our payment) is an answer; only an unreachable or failing API is an error.
+  return out(r.data, r.status === 0 || r.status >= 500);
 });
 
 server.registerTool("top_endpoints", {
@@ -120,6 +122,7 @@ server.registerTool("top_endpoints", {
 server.registerTool("catalog_stats", {
   title: "x402 catalog statistics",
   description: D.catalog_stats,
+  inputSchema: {},
   annotations: { ...ro, title: "x402 catalog statistics" },
 }, async () => {
   const r = await call("GET", "/v1/stats");

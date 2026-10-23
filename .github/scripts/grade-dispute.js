@@ -16,7 +16,7 @@ function endpointsFrom(body) {
 // The "Re-test" column: queued, not needed (and why, in the text below), or already asked for today.
 function retestCell(j) {
   if (j.queued) return "✅ queued";
-  if (j.retestNeeded === false) return ({ uptime: "not needed: uptime, clears on its own", passing: "not needed: already passing", wallet: "not needed: wallet change", withdrawn: "not needed: withdrawn", strikes: "seller-funded test needed" })[j.why] || "not needed (see below)";
+  if (j.retestNeeded === false) return ({ uptime: "not needed: uptime, clears on its own", passing: "not needed: already passing", wallet: "not needed: wallet change", withdrawn: "not needed: withdrawn", strikes: "automatic, less often while failing (or fund one)" })[j.why] || "not needed (see below)";
   return "already requested in the last 24h";
 }
 
@@ -70,6 +70,7 @@ module.exports = async ({ github, context, fetchImpl = fetch }) => {
     if (anyQueued) lines.push("");
     lines.push(notNeeded.length === 1 && one ? "**Why there's no paid re-test:**" : "**Why some endpoints get no paid re-test:**", "");
     for (const { url, j } of notNeeded) lines.push(`- ${one ? "" : `\`${url}\`: `}${j.note || "A paid test can't change this grade."}`);
+    if (notNeeded.some(x => x.j.why === "strikes")) lines.push("", "If an automatic re-test delivers while this issue is open, I'll post the result here and close it.");
     lines.push("", "Each endpoint's page lists its free checks with UTC timestamps under **Recent failed checks**.");
   }
   if (missing.length) lines.push("", `Not in the monitored catalog (no grade yet): ${missing.map(x => `\`${x.url}\``).join(", ")}.`);
@@ -138,7 +139,14 @@ async function followUp({ github, repo, issue, fetchImpl, now }) {
     if (r.status === 404) continue;                       // not monitored: the first reply already said so
     if (!r.ok || typeof j.done !== "boolean") return "api not ready";
     const asked = j.request && Date.parse(j.request.requestedAt) >= opened - 24 * 3600_000;
-    if (!asked) continue;                                 // no re-test was queued for this issue (the first reply said why)
+    if (!asked) {
+      // No re-test was queued for this issue (the first reply said why, e.g. a funded test is needed after repeated
+      // failures), but our automatic re-tests keep running. Report one only once it delivers; until then, stay quiet.
+      const auto = j.lastPaidTest && Date.parse(j.lastPaidTest.at) >= opened ? j.lastPaidTest : null;
+      if (auto && auto.outcome === "delivered") rows.push({ url, j, outcome: "delivered", before: before[url] });
+      else if (j.delivery === "failing") waiting = true;
+      continue;
+    }
     if (!j.done) { waiting = true; if (j.blocked) blocked.push({ url, b: j.blocked }); continue; }
     const ran = j.lastPaidTest && Date.parse(j.lastPaidTest.at) >= Date.parse(j.request.requestedAt);
     rows.push({ url, j, outcome: ran ? j.lastPaidTest.outcome : null, before: before[url] });

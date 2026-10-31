@@ -220,7 +220,7 @@ Think a grade is wrong? [Open a Grade dispute](../../issues/new/choose) with the
 ## Lumière Agents
 
 <p align="center">
-  <img src="assets/8-agents-site.png" alt="Lumière Agents: five agents that chase what your business is owed" width="820">
+  <img src="assets/8-agents-site.png" alt="Lumière Agents: six agents that follow up on what your business is owed" width="820">
 </p>
 
 **From the team behind PayCheck: done-for-you follow-up for small businesses.** [agents.lumierepaycheck.org](https://agents.lumierepaycheck.org)
@@ -243,10 +243,10 @@ Most small businesses aren't short on work; they're short on follow-up. Lumière
 - **Your accounts stay yours.** Works with QuickBooks (read-only) or any spreadsheet; emails come from your own address and texts from your own Twilio number. Each client's data is walled off in the database and stored files are encrypted.
 
 <p align="center">
-  <img src="assets/7-lumiere-agents.png" alt="Lumière Agents section on lumierepaycheck.org with the five agents and pricing" width="820">
+  <img src="assets/7-lumiere-agents.png" alt="Lumière Agents section on lumierepaycheck.org with the six agents and pricing" width="820">
 </p>
 
-**Pricing:** one agent $200/month + $750 setup; each extra agent $100/month + $400 setup; all five $500/month + $2,000 setup. Cancel any time. [Guides](https://agents.lumierepaycheck.org/docs) · [Get started](https://agents.lumierepaycheck.org/start)
+**Pricing:** one agent $200/month + $750 setup; each extra agent $100/month + $400 setup; all six $500/month + $2,000 setup. Cancel any time. [Guides](https://agents.lumierepaycheck.org/docs) · [Get started](https://agents.lumierepaycheck.org/start)
 
 Lumière Agents is a separate, hosted product from Lumière LLC; its code isn't in this repository.
 

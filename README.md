@@ -234,6 +234,7 @@ Most small businesses aren't short on work; they're short on follow-up. Lumière
 | **Missed-call text-back** | Every missed caller gets a text from the business's own number within a minute (9am–8pm), with the booking link and a hand-off to the owner. |
 | **Paperwork chaser** | Collects subcontractors' insurance certificates through an upload link, checks them against the owner's checklist, and asks for renewals before they expire. |
 | **Receipt chaser** | Every Monday, asks whoever holds the company card for the missing receipts (a phone photo is enough) and files them; the bookkeeper gets a monthly copy. |
+| **Review requests** | A friendly review request a couple of days after each paid invoice, with the business's Google (or Yelp, Facebook) review link and one follow-up. No filtering, no incentives. |
 
 **How it stays safe**
 
@@ -248,7 +249,7 @@ Most small businesses aren't short on work; they're short on follow-up. Lumière
 
 **Pricing:** one agent $200/month + $750 setup; each extra agent $100/month + $400 setup; all six $500/month + $2,000 setup. Cancel any time. [Guides](https://agents.lumierepaycheck.org/docs) · [Get started](https://agents.lumierepaycheck.org/start)
 
-Lumière Agents is a separate, hosted product from Lumière LLC; its code isn't in this repository.
+Lumière Agents is a separate, hosted product from Lumière LLC; its code isn't in this repository. Its public repo, with the API and webhook reference, code examples and screenshots, is [Book0fEli/agents-lumiere](https://github.com/Book0fEli/agents-lumiere).
 
 ## Independence
 

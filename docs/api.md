@@ -98,6 +98,11 @@ Amounts are atomic units (USDC has 6 decimals: `10000` = $0.01). Only `url` is r
 }
 ```
 
+
+### The re-test window
+
+A first failed paid test doesn't change a grade: we re-test about 2 hours later, and only a second failure counts (over 30 days, 94% of first failures were confirmed and 6% delivered on the re-test). While that re-test is pending, `GET /v1/score` and `POST /v1/check-payment` (and the `check_endpoint` / `check_payment` MCP tools) return `retest: { pending, firstFailureAt, retestDueBy, moneyTaken, reason, note }`, and `check-payment` adds a note. To hold payments until it settles, send `"rules": { "pauseDuringRetest": true }`.
+
 ## Payout-wallet changes
 
 A changed payout wallet is either the seller's own rotation or a possible hijack, and monitoring alone can't tell them apart. So every unexplained change is reviewed (every 15 minutes) against independent evidence:

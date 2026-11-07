@@ -3,7 +3,7 @@
   "name": "io.github.Book0fEli/paycheck",
   "title": "Lumière PayCheck",
   "description": "Check any x402 endpoint before your AI agent pays it: trust grade, verdict, and hijack checks.",
-  "version": "1.9.1",
+  "version": "1.9.2",
   "websiteUrl": "https://lumierepaycheck.org",
   "icons": [
     {
@@ -30,7 +30,7 @@
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "lumiere-paycheck-mcp",
-      "version": "1.2.1",
+      "version": "1.2.2",
       "transport": {
         "type": "stdio"
       },

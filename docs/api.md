@@ -305,6 +305,10 @@ Every seller (domain) behind the monitored endpoints: `totals` (endpoints, selle
 
 One seller's endpoints, 50 per page: `url`, `grade`, `score`, `verdict`, `uptimePct`, `medianLatencyMs`, `paidTested`, `checks`, plus `counts` per verdict. `sort` is `grade` (best first) or `worst`; default by URL. `404` if we monitor nothing for that domain.
 
+## `POST /v1/endpoints/submit` · free
+
+Add x402 endpoints that aren't in the x402 Bazaar: `{ "url": "https://..." }`, `{ "domain": "example.com" }` (we read its `/.well-known/x402.json` and queue every paid endpoint it lists) or `{ "urls": [...] }` (up to 25). Each URL is checked within about 10 minutes and joins the catalog only if it answers a valid x402 payment quote; then it's graded like every other endpoint. Checking an endpoint we don't monitor (`GET /v1/score`, `POST /v1/check-payment`, the MCP tools, its page) queues it the same way, and the answer's `intake` field says so. We also read every known seller's `/.well-known/x402.json` daily. Guardrails: https and public addresses only, at most 100 endpoints added per domain this way, 10 submissions a minute. The form is at [lumierepaycheck.org/sellers/add](https://lumierepaycheck.org/sellers/add).
+
 ## `GET /v1/test-receipts?url=<endpoint>[&limit=&id=]` · free
 
 Signed receipts for our paid tests of one endpoint, newest first (since Nov 7, 2026). Each has `receipt` (`<body>.<signature>`, Ed25519, key `paycheck-receipts-1` at `/.well-known/jwks.json`) and the decoded `payload`: `url`, `network`, `asset`, `amountQuoted`, `amountPaid`, `payTo`, `termsHash`, `responseHash`, `responseBytes`, `httpStatus`, `outcome`, `testedAt` and `commitment`. The tester wallet and settlement transaction stay private while that wallet is in use (sellers could otherwise recognize our tester); once it's retired, `revealed` gives `payer`, `tx` and `salt`, which recompute the signed `commitment`. Full details and verification code: [lumierepaycheck.org/docs/receipts](https://lumierepaycheck.org/docs/receipts).

@@ -66,7 +66,7 @@ https://lumierepaycheck.org/mcp?plans=1
   { "mcpServers": { "lumiere-paycheck": { "url": "https://lumierepaycheck.org/mcp?plans=1" } } }
   ```
 
-Tools: `check_payment`, `check_endpoint`, `report_outcome`, `top_endpoints`, `catalog_stats`, `get_full_report`.
+Tools: `check_payment`, `check_endpoint`, `report_outcome`, `top_endpoints`, `catalog_stats`, `list_sellers`, `seller_endpoints`, `paid_test_receipts`, `get_full_report`.
 
 Prefer a local stdio server? [`packages/mcp-server`](packages/mcp-server) runs the same tools on your machine (`node server.js`, or the repo's `Dockerfile`).
 

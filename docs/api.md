@@ -292,6 +292,22 @@ Example response (numbers change as the catalog grows):
 
 Sellers grouped by domain, biggest first: endpoints listed, how many pass, best endpoint.
 
+## `GET /v1/sellers` · free
+
+Every seller (domain) behind the monitored endpoints: `totals` (endpoints, sellers, paid-tested, counts per verdict) and `sellers`, each with `host`, `endpoints`, `byVerdict`, `paidTested`, `best` (`url`, `grade`, `score`) and `bulk` (lists thousands of near-identical endpoints). Also `verdicts` (labels) and `history` (daily counts per verdict). The page version is [lumierepaycheck.org/sellers](https://lumierepaycheck.org/sellers).
+
+### `GET /v1/sellers/<domain>?verdict=&q=&sort=&offset=` · free
+
+One seller's endpoints, 50 per page: `url`, `grade`, `score`, `verdict`, `uptimePct`, `medianLatencyMs`, `paidTested`, `checks`, plus `counts` per verdict. `sort` is `grade` (best first) or `worst`; default by URL. `404` if we monitor nothing for that domain.
+
+## `GET /v1/test-receipts?url=<endpoint>[&limit=&id=]` · free
+
+Signed receipts for our paid tests of one endpoint, newest first (since Nov 7, 2026). Each has `receipt` (`<body>.<signature>`, Ed25519, key `paycheck-receipts-1` at `/.well-known/jwks.json`) and the decoded `payload`: `url`, `network`, `asset`, `amountQuoted`, `amountPaid`, `payTo`, `termsHash`, `responseHash`, `responseBytes`, `httpStatus`, `outcome`, `testedAt` and `commitment`. The tester wallet and settlement transaction stay private while that wallet is in use (sellers could otherwise recognize our tester); once it's retired, `revealed` gives `payer`, `tx` and `salt`, which recompute the signed `commitment`. Full details and verification code: [lumierepaycheck.org/docs/receipts](https://lumierepaycheck.org/docs/receipts).
+
+### `POST /v1/test-receipts/verify` · free
+
+`{ "receipt": "...", "payer"?, "tx"?, "salt"? }` → `{ valid, payload, commitmentMatches? }`.
+
 ## `GET /v1/report?url=<endpoint>` · $0.005
 
 Everything in `/v1/score` plus score breakdown, median latency, wallet and price event counts, delivery rate, the current quote (payTo, amount, network), the last 20 events, and the last 10 paid delivery checks. Each paid check (`recentDeliveries`) has its time, outcome, HTTP status, latency, amount, `moneyTaken` and `refunded` (yes/no), and what came back. Our tester's wallet and transactions aren't included.
@@ -462,6 +478,9 @@ Same tools at `https://lumierepaycheck.org/mcp?plans=1`, whose instructions also
 | `check_endpoint` | Score, grade, verdict, advice, and every reason behind the grade |
 | `top_endpoints` | Most trustworthy endpoints |
 | `catalog_stats` | Catalog size and verdict counts |
+| `list_sellers` | Sellers by domain with their verdict mix, passing and paid-tested counts and best grade (same as `/v1/sellers`) |
+| `seller_endpoints` | One seller's endpoints with grade, uptime and whether a paid test delivered (same as `/v1/sellers/<domain>`) |
+| `paid_test_receipts` | Signed receipts for our paid tests of one endpoint (same as `/v1/test-receipts`) |
 | `get_full_report` | How to buy the full report |
 | `report_outcome` | After paying, report how it went (receipt, or url + payment tx; short answers) |
 

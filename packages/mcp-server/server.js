@@ -9,13 +9,16 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 
 const API = (process.env.LUMIERE_PAYCHECK_URL || "https://lumierepaycheck.org").replace(/\/+$/, "");
-const VERSION = "1.1.1";
+const VERSION = "1.2.0";
 const D = {
   "check_endpoint": "Get the trust verdict for one x402 endpoint: score (0-100), grade (A-F), and verdict (proceed, caution, avoid, free, or insufficient_data), plus uptime, delivery-test status, payout-wallet incidents, and how many independent buyers stand behind the seller's buyer wallets (we count customers, not wallets). Use it when you're deciding whether an endpoint is trustworthy at all, before you have a price quote. When you already have the 402 quote (amount and payTo) and are about to pay, use check_payment instead: it runs this same check and also verifies the price and wallet. To discover good endpoints rather than check a known one, use top_endpoints. Read-only and free; reflects monitoring every 30 minutes and real test payments, so a brand-new endpoint may return insufficient_data. Endpoints not in the catalog return monitored: false. API docs: https://github.com/Book0fEli/lumiere-paycheck/blob/main/docs/api.md",
   "check_payment": "Decide whether a specific x402 payment should go through: returns allow true/false with reasons. Checks the endpoint's trust verdict, that the amount is within your cap and not above the monitored price, and that the payTo wallet matches the one we've observed (catches swapped or hijacked wallets). Optionally (minOrganicShare) it also requires that enough of the seller's volume comes from independent buyers. Intended for right before a payment, with the amount, payTo, and network from the endpoint's 402 quote; allow is true only when every rule passes. Use check_endpoint instead if you only want an endpoint's grade without a quote in hand. Read-only and free; it doesn't make or block the payment itself. When allow is false, the reasons list explains why. API docs: https://github.com/Book0fEli/lumiere-paycheck/blob/main/docs/api.md",
   "report_outcome": "After paying an x402 endpoint, report whether you got what you paid for. Free, optional, and open to every agent: send the receipt from a Lumière PayCheck allow decision (paid plans), or the endpoint url plus the payment's transaction hash (anyone; we verify the payment on-chain, Base or Solana, within 24 hours). Answer the short questions in answers: gotResponse, matchedListing (yes/partly/no), charged (as_quoted/more/twice), dataUsable (yes/unsure/no), wouldPayAgain. Reports never change a grade by themselves: confirmations from independent buyers move the endpoint up our paid-test queue, and serious problems (nothing came back, charged more or twice) trigger a re-test; only our own paid test changes the grade. One report per payment; the seller's own wallet can't report on itself.",
   "top_endpoints": "List the x402 endpoints that are currently safest to pay (verdict proceed or caution, no payout-wallet incidents), best first, with score, grade, verdict, and whether a real test payment was delivered. Use it to discover reliable endpoints or pick between providers. To evaluate one specific endpoint use check_endpoint; to approve a payment use check_payment. Read-only and free; rankings update as monitoring runs (every 30 minutes).",
   "catalog_stats": "Get an overview of the whole monitored x402 catalog: how many endpoints are monitored, how many fall into each verdict (proceed, caution, avoid, free, insufficient_data), and when scores were last computed. Use it for context or reporting, for example to tell a user how much of the x402 ecosystem passes checks. It says nothing about any single endpoint: use check_endpoint for one endpoint, top_endpoints for a ranked list, or check_payment before paying. Read-only, free, no parameters.",
+  "list_sellers": "List the sellers behind the monitored x402 endpoints, grouped by domain, with each seller's endpoint count, verdict mix (proceed, caution, avoid, free, insufficient_data, bulk_listing), passing and paid-tested counts, and best grade. Use it to find which providers have trustworthy endpoints, search a provider by domain, or see who has endpoints to avoid. Open one seller's endpoints with seller_endpoints; for a single endpoint use check_endpoint. Read-only and free; the same data as lumierepaycheck.org/sellers, refreshed every few minutes.",
+  "seller_endpoints": "List one seller's monitored x402 endpoints with each one's grade, score, verdict, 7-day uptime, median response time, whether a real test payment was delivered, and how many checks it's based on, plus the seller's counts per verdict. Use it after list_sellers to pick the best endpoint from a provider, or to see which of a seller's endpoints to avoid. For the full reasons behind one endpoint's grade use check_endpoint. Read-only and free; 50 endpoints per page at most.",
+  "paid_test_receipts": "Get the signed receipts for our real test payments to one x402 endpoint: the exact payment terms we paid and the response we got (as SHA-256 hashes), amount quoted and paid, payout wallet, HTTP status, result and time, signed with our published Ed25519 key. Use it when a user or agent wants evidence behind a grade instead of the grade alone; check_endpoint gives the grade itself. The tester wallet and transaction appear only after that test wallet is retired (until then a hash commits to them). Read-only and free; receipts exist for tests since Nov 7, 2026.",
   "get_full_report": "Get instructions for buying the detailed paid report on one x402 endpoint (score breakdown, current price quote, wallet and price history, test-payment results). Returns the report URL, price, and network; it doesn't buy the report itself. The report is an x402 endpoint that your agent pays with any x402 client. Use it only when the free check_endpoint result isn't enough and the user wants the full history. The response also lists the other paid x402 checks (wallet risk, batch grades, watch alerts), paid the same way. Endpoints we don't monitor return 404 on the report URL and are never charged. API docs: https://github.com/Book0fEli/lumiere-paycheck/blob/main/docs/api.md"
 };
 
@@ -42,7 +45,7 @@ const page = (url) => `${API}/e?url=${encodeURIComponent(url)}`;
 const ro = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true };
 
 const server = new McpServer({ name: "lumiere-paycheck", title: "Lumière PayCheck", version: VERSION, websiteUrl: "https://lumierepaycheck.org" }, {
-  instructions: "Lumière PayCheck checks x402 endpoints before an agent pays them. Call check_endpoint for a trust verdict, or check_payment with the amount and payTo from the 402 quote before paying; check_payment returns allow true only when every rule passes. After paying, report_outcome records whether you got what you paid for (with a receipt, or the payment tx). Free to use.",
+  instructions: "Lumière PayCheck checks x402 endpoints before an agent pays them. Call check_endpoint for a trust verdict, or check_payment with the amount and payTo from the 402 quote before paying; check_payment returns allow true only when every rule passes. After paying, report_outcome records whether you got what you paid for (with a receipt, or the payment tx). To browse providers use list_sellers and seller_endpoints; for the evidence behind a grade, paid_test_receipts. Free to use.",
 });
 
 server.registerTool("check_endpoint", {
@@ -129,6 +132,84 @@ server.registerTool("catalog_stats", {
   return out(r.data, r.status !== 200);
 });
 
+// Seller list, paged and filtered locally from GET /v1/sellers (cached for 2 minutes).
+let sellersCache = null;
+async function sellers() {
+  if (sellersCache && Date.now() - sellersCache.at < 120_000) return { status: 200, data: sellersCache.data };
+  const r = await call("GET", "/v1/sellers");
+  if (r.status === 200) sellersCache = { at: Date.now(), data: r.data };
+  return r;
+}
+
+server.registerTool("list_sellers", {
+  title: "List x402 sellers by verdict",
+  description: D.list_sellers,
+  inputSchema: {
+    query: z.string().max(200).optional().describe("Part of a seller's domain to search for, e.g. 'weather' or 'x402node.dev'"),
+    verdict: z.enum(["proceed", "caution", "avoid", "free", "insufficient_data", "bulk_listing"]).optional().describe("Only sellers with at least one endpoint in this verdict (sorted by how many they have in it)"),
+    sort: z.enum(["endpoints", "passing", "paid_tested", "avoid", "name"]).optional().describe("Order: most endpoints (default), most passing, most paid-tested, most to avoid, or by name"),
+    includeBulk: z.boolean().optional().describe("Include sellers listing thousands of near-identical endpoints (default true)"),
+    limit: z.number().int().min(1).max(50).optional().describe("Sellers per page, 1-50 (default 20)"),
+    offset: z.number().int().min(0).optional().describe("Skip this many sellers, for paging (default 0)"),
+  },
+  annotations: { ...ro, title: "List x402 sellers by verdict" },
+}, async (a) => {
+  const r = await sellers();
+  if (r.status !== 200) return out(r.data, true);
+  const q = (a.query ?? "").trim().toLowerCase(), v = a.verdict;
+  const passing = s => (s.byVerdict?.proceed ?? 0) + (s.byVerdict?.caution ?? 0);
+  let rows = (r.data.sellers ?? []).filter(s => (a.includeBulk !== false || !s.bulk) && (!q || s.host.includes(q)) && (!v || (s.byVerdict?.[v] ?? 0) > 0));
+  const by = { passing: (x, y) => passing(y) - passing(x), paid_tested: (x, y) => y.paidTested - x.paidTested, avoid: (x, y) => (y.byVerdict?.avoid ?? 0) - (x.byVerdict?.avoid ?? 0),
+    name: (x, y) => x.host.localeCompare(y.host), endpoints: (x, y) => y.endpoints - x.endpoints };
+  const cmp = by[a.sort ?? ""] ?? (v ? (x, y) => (y.byVerdict?.[v] ?? 0) - (x.byVerdict?.[v] ?? 0) : by.endpoints);
+  rows = rows.sort((x, y) => cmp(x, y) || x.host.localeCompare(y.host));
+  const limit = a.limit ?? 20, offset = a.offset ?? 0;
+  return out({ totalSellers: r.data.totals?.sellers, totalEndpoints: r.data.totals?.endpoints, matching: rows.length, offset, limit,
+    sellers: rows.slice(offset, offset + limit).map(s => ({ host: s.host, endpoints: s.endpoints, byVerdict: s.byVerdict, passing: passing(s), paidTested: s.paidTested,
+      bestGrade: s.best?.grade ?? null, bestEndpoint: s.best?.url ?? null, bulkLister: !!s.bulk })) });
+});
+
+server.registerTool("seller_endpoints", {
+  title: "One seller's x402 endpoints",
+  description: D.seller_endpoints,
+  inputSchema: {
+    host: z.string().min(1).max(253).describe("The seller's domain, e.g. api.example.com (a full URL works too)"),
+    verdict: z.enum(["proceed", "caution", "avoid", "free", "insufficient_data", "bulk_listing"]).optional().describe("Only endpoints with this verdict"),
+    query: z.string().max(200).optional().describe("Part of the endpoint URL to search for, e.g. a path like '/weather'"),
+    sort: z.enum(["url", "grade", "worst"]).optional().describe("Order: by URL (default), best score first, or worst score first"),
+    limit: z.number().int().min(1).max(50).optional().describe("Endpoints per page, 1-50 (default 50)"),
+    offset: z.number().int().min(0).optional().describe("Skip this many endpoints, for paging (default 0)"),
+  },
+  annotations: { ...ro, title: "One seller's x402 endpoints" },
+}, async (a) => {
+  let host = "";
+  try { host = new URL(a.host.includes("://") ? a.host : `https://${a.host}`).hostname.toLowerCase(); } catch { /* not a domain */ }
+  if (!host) return out({ error: "Not a domain. Send the seller's domain, e.g. api.example.com." });
+  const qs = new URLSearchParams();
+  if (a.verdict) qs.set("verdict", a.verdict);
+  if (a.query) qs.set("q", a.query);
+  if (a.sort && a.sort !== "url") qs.set("sort", a.sort);
+  if (a.offset) qs.set("offset", String(a.offset));
+  const r = await call("GET", `/v1/sellers/${encodeURIComponent(host)}?${qs}`);
+  if (r.status === 404) return out({ host, error: "No monitored endpoints for that seller. Search for it with list_sellers." });
+  if (r.status !== 200) return out(r.data, true);
+  return out(a.limit ? { ...r.data, limit: a.limit, endpoints: (r.data.endpoints ?? []).slice(0, a.limit) } : r.data);
+});
+
+server.registerTool("paid_test_receipts", {
+  title: "Signed paid-test receipts",
+  description: D.paid_test_receipts,
+  inputSchema: {
+    url: z.string().describe("Full URL of the x402 endpoint, including path"),
+    limit: z.number().int().min(1).max(50).optional().describe("How many receipts, newest first, 1-50 (default 10)"),
+  },
+  annotations: { ...ro, title: "Signed paid-test receipts" },
+}, async ({ url, limit }) => {
+  const r = await call("GET", `/v1/test-receipts?url=${encodeURIComponent(url)}&limit=${limit ?? 10}`);
+  if (r.status === 404) return out({ url, monitored: false, count: 0, receipts: [] });
+  return out(r.status === 200 ? { monitored: true, ...r.data } : r.data, r.status !== 200);
+});
+
 server.registerTool("get_full_report", {
   title: "How to get a full trust report",
   description: D.get_full_report,
@@ -189,6 +270,9 @@ Checks x402 endpoints before an AI agent pays them.
 - **check_payment**: before a specific payment. Send the amount and payTo from the 402 quote; pay only when \`allow\` is true. Catches overpricing and swapped payout wallets.
 - **top_endpoints**: the endpoints currently safest to pay.
 - **catalog_stats**: catalog size and verdict counts.
+- **list_sellers**: the sellers behind the catalog, by domain, with their verdict mix and best grade. Search, filter by verdict, sort.
+- **seller_endpoints**: one seller's endpoints with grade, uptime and whether a paid test delivered.
+- **paid_test_receipts**: signed receipts for our test payments to one endpoint (terms and response hashes, amount, result, time), checkable with our public key.
 - **get_full_report**: how to buy the detailed report (paid via x402).
 - **report_outcome**: after paying, report how it went (receipt, or url + payment tx; short answers). Confirmations move the endpoint up our paid-test queue; only our own test changes grades.
 

@@ -88,8 +88,10 @@ exports.onOpened = async ({ github, context, fetchImpl = fetch }) => {
 function resultComment(t, score) {
   const passed = t.outcome === "delivered";
   const first = t.outcome === "suspect";
+  const unpayable = t.outcome === "quote_unpayable";
   const lines = [
     passed ? `✅ **The funded test delivered.** \`${t.url}\` was paid ${t.amount} and returned a valid response.`
+      : unpayable ? `⚠️ **The funded test couldn't pay: standard x402 clients can't pay this quote.** No payment was made, so your whole funding is returned. The details below say what's wrong with the quote and how to fix it; once it's fixed, open a new seller test and it'll be paid for real.`
       : first ? `⚠️ **The funded test didn't deliver this time** (first failure, not counted against the grade yet).`
       : `❌ **The funded test didn't deliver.**`,
     "",

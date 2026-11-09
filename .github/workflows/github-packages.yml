@@ -1,0 +1,63 @@
+# Publishes the npm packages to GitHub Packages too, so they show in this repo's "Packages" section.
+# npmjs stays the main registry and keeps the plain names (x402-paycheck, lumiere-paycheck-mcp). GitHub Packages only
+# accepts names scoped to the repo owner, so the copy here is @book0feli/<name>, renamed at publish time only.
+# Runs when a package's version changes on main, or by hand from the Actions tab. A version that's already there is skipped.
+name: Publish to GitHub Packages
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/*/package.json"
+      - ".github/workflows/github-packages.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+  packages: write
+concurrency:
+  group: github-packages
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [x402-paycheck, mcp-server]
+    defaults:
+      run:
+        working-directory: packages/${{ matrix.package }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://npm.pkg.github.com
+          scope: "@book0feli"
+      - name: Scoped name for GitHub Packages
+        id: meta
+        run: |
+          name="$(node -p "require('./package.json').name")"
+          version="$(node -p "require('./package.json').version")"
+          scoped="@book0feli/${name}"
+          echo "scoped=${scoped}" >> "$GITHUB_OUTPUT"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          if npm view "${scoped}@${version}" version --registry https://npm.pkg.github.com >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"; echo "${scoped}@${version} is already published; skipping."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install
+        if: steps.meta.outputs.exists == 'false'
+        run: npm ci
+      - name: Test
+        if: steps.meta.outputs.exists == 'false' && matrix.package == 'x402-paycheck'
+        run: npm test
+      - name: Publish
+        if: steps.meta.outputs.exists == 'false'
+        run: |
+          npm pkg set name="${{ steps.meta.outputs.scoped }}" publishConfig.registry=https://npm.pkg.github.com
+          npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

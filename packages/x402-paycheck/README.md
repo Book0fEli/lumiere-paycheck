@@ -135,6 +135,30 @@ if (!d.allow) console.log(d.reasons);
 console.log(d.buyers); // { reviewed, independentBuyers30d, buyerWallets30d, organicShare, flags }
 ```
 
+## After paying: verify the delivery (v0.4.0)
+
+A paid call can come back `200` with the wrong data. That passes every check on the quote, and it still costs you. `wrapFetchWithPayCheck` checks every paid response against the listing in the endpoint's own 402 quote (the example output in `extensions.bazaar`, or a v1 `outputSchema`), using the same rules as PayCheck's paid tests:
+
+- an error status, an empty body, or not-JSON when the listing promises JSON is a failure;
+- with an example, the response must carry the example's fields (at the top level or inside a wrapper like `{ data: ... }`); an empty result list is fine;
+- with a JSON Schema, types and required fields must match.
+
+```ts
+import { x402Client, wrapFetchWithPayment } from "@x402/fetch";
+import { wrapFetchWithPayCheck } from "x402-paycheck";
+
+const client = new x402Client().register("eip155:8453", new ExactEvmScheme(signer));
+const fetchWithPay = wrapFetchWithPayCheck(fetch, client, wrapFetchWithPayment, {
+  reportOutcomes: true,                       // optional: report each paid call's result to PayCheck
+  onDelivery: (d) => { if (!d.ok) console.warn("paid but bad:", d.url, d.problems); },
+});
+
+const res = await fetchWithPay(url);           // checked before paying, verified after
+// client.lastDelivery -> { ok: false, problems: ["none of the example's fields (symbol, price) in the response, ..."], matchedListing: "no", ... }
+```
+
+The check reads a copy of the response, so your code reads the body as usual, and it never throws. With `reportOutcomes: true`, each result is sent to PayCheck (free, verified on-chain from the payment's transaction): a bad delivery moves the endpoint to the front of PayCheck's paid re-test queue, so the next agent sees it in the grade. To check a response yourself: `await verifyDelivery(res, { quote })` with the 402 quote, or `{ expected: { example } }`. `verifyDelivery: false` turns the automatic check off.
+
 ## After paying: report how it went
 
 One line after a paid call tells PayCheck whether you got what you paid for. It's free and optional, and no account is needed: the payment's transaction is read from the paid response and checked on-chain.

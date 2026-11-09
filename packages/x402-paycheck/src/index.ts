@@ -26,9 +26,11 @@
 // paid-test queue; problems trigger a re-test. Reports never change a grade by themselves.
 
 import { AsyncLocalStorage } from "node:async_hooks";
+import { verifyDelivery, type DeliveryCheck } from "./delivery.js";
+export { verifyDelivery, expectedOutput, type DeliveryCheck, type ExpectedOutput } from "./delivery.js";
 
 export const DEFAULT_API = "https://lumierepaycheck.org";
-const VERSION = "0.3.0";
+const VERSION = "0.4.0";
 
 export interface PayCheckRules {
   maxAmount?: string | number;      // atomic units (USDC: 1000000 = $1)
@@ -57,7 +59,16 @@ export interface PayCheckOptions {
   // You have your own account / API key / sign-in with these sellers (true for all, or a list of hostnames).
   // Endpoints that need the seller's own sign-in on top of x402 then aren't blocked by caution/verified rules.
   hasAccess?: boolean | string[];
+  // After paying (wrapFetchWithPayCheck, v0.4.0): check the paid response against the listing in the 402 quote, the same
+  // way PayCheck's own paid tests do. Default true. The result is on `client.lastDelivery` and passed to onDelivery.
+  verifyDelivery?: boolean;
+  // Also report each paid call's result to PayCheck (free, verified on-chain), so a bad delivery gets the endpoint
+  // re-tested before the next agent pays. Default false (opt in).
+  reportOutcomes?: boolean;
+  onDelivery?: (d: DeliveryResult) => void | Promise<void>;
 }
+
+export interface DeliveryResult extends DeliveryCheck { url: string; report?: ReportResult }
 
 export interface PaymentToCheck {
   url: string;                      // the x402 endpoint being paid
@@ -152,17 +163,20 @@ const workspaceFailOpen = new Map<string, string>();
 
 // The URL of the request being paid, for 402 quotes that don't include resource.url (x402 v1).
 const currentUrl = new AsyncLocalStorage<string>();
+// The call being paid through wrapFetchWithPayCheck: its 402 quote, once PayCheck allowed the payment (for verifyDelivery).
+const currentCall = new AsyncLocalStorage<{ url: string; quote?: unknown }>();
 
 // Minimal shape of x402Client we rely on (from @x402/fetch / @x402/core): the before-payment hook.
 interface HookableClient {
-  onBeforePaymentCreation(hook: (ctx: { paymentRequired: { resource?: { url?: string } }; selectedRequirements: { amount: string; payTo: string; network: string } }) =>
+  onBeforePaymentCreation(hook: (ctx: { paymentRequired: { resource?: { url?: string }; [k: string]: any }; selectedRequirements: { amount: string; payTo: string; network: string } }) =>
     Promise<void | { abort: true; reason: string }>): unknown;
 }
 
 // Adds PayCheck to an x402Client: every payment is checked before it's created; a "no" aborts it.
 // Also records the last decision on `lastPayCheckDecision` for logging.
-export function withPayCheck<C extends HookableClient>(client: C, opts: PayCheckOptions = {}): C & { lastPayCheckDecision?: PayCheckDecision } {
-  const c = client as C & { lastPayCheckDecision?: PayCheckDecision };
+export type PayCheckClient<C> = C & { lastPayCheckDecision?: PayCheckDecision; lastDelivery?: DeliveryResult };
+export function withPayCheck<C extends HookableClient>(client: C, opts: PayCheckOptions = {}): PayCheckClient<C> {
+  const c = client as PayCheckClient<C>;
   client.onBeforePaymentCreation(async (ctx) => {
     const url = ctx.paymentRequired?.resource?.url || currentUrl.getStore();
     if (!url) return { abort: true, reason: "Lumière PayCheck: the 402 quote has no resource URL; use wrapFetchWithPayCheck so the request URL is known" };
@@ -170,6 +184,7 @@ export function withPayCheck<C extends HookableClient>(client: C, opts: PayCheck
     const d = await checkPayment({ url, amount: String(r.amount), payTo: r.payTo, network: r.network }, opts);
     c.lastPayCheckDecision = d;
     if (!d.allow) return { abort: true, reason: `Lumière PayCheck: ${d.outcome}: ${d.reasons.join("; ") || "not allowed"}` };
+    const call = currentCall.getStore(); if (call) call.quote = ctx.paymentRequired;
   });
   return c;
 }
@@ -182,14 +197,27 @@ export function wrapFetchWithPayCheck(
   wrapFetchWithPayment: (f: typeof globalThis.fetch, c: any) => (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>,
   opts: PayCheckOptions = {},
 ) {
-  const paying = wrapFetchWithPayment(fetchFn, withPayCheck(client, opts));
+  const checked = withPayCheck(client, opts);
+  const paying = wrapFetchWithPayment(fetchFn, checked);
   return async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : (input as Request).url;
     if (opts.agentCredential && opts.agentKey) {
       const c = await getAgentCredential(new URL(url).host, opts).catch(() => null);
       if (c?.credential) { const h = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined)); h.set("x-paycheck-agent", c.credential); init = { ...init, headers: h }; }
     }
-    return currentUrl.run(url, () => paying(input, init));
+    const call: { url: string; quote?: unknown } = { url };
+    const res = await currentCall.run(call, () => currentUrl.run(url, () => paying(input, init)));
+    // Paid (PayCheck allowed a payment for this call): check what came back. Never throws.
+    if (call.quote !== undefined && opts.verifyDelivery !== false) {
+      try {
+        const d: DeliveryResult = { url, ...(await verifyDelivery(res, { quote: call.quote })) };
+        if (opts.reportOutcomes) d.report = await reportOutcome({ url, response: res, answers: { matchedListing: d.matchedListing === "unsure" ? undefined : d.matchedListing, dataUsable: d.dataUsable },
+          ...(d.problems.length ? { problems: d.problems.slice(0, 5) } : {}) }, opts);
+        checked.lastDelivery = d;
+        await opts.onDelivery?.(d);
+      } catch { /* a check that can't run never breaks the call */ }
+    }
+    return res;
   };
 }
 

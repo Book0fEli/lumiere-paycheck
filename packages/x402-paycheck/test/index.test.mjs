@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { checkPayment, withPayCheck, wrapFetchWithPayCheck, reportOutcome, paymentTxFrom, consumeReceipt, getAgentCredential, verifyAgentCredential } from "../dist/index.js";
+import { checkPayment, withPayCheck, wrapFetchWithPayCheck, reportOutcome, paymentTxFrom, consumeReceipt, getAgentCredential, verifyAgentCredential, verifyDelivery, expectedOutput } from "../dist/index.js";
 import { generateKeyPairSync, sign } from "node:crypto";
 
 const fakePayCheck = (answer, status = 200, seen = []) => async (url, init) => { seen.push({ url, init }); return new Response(JSON.stringify(answer), { status }); };
@@ -187,4 +187,56 @@ test("verifyAgentCredential: signature, audience, paying wallet, live status", a
   const t = make(claims); assert.equal((await verifyAgentCredential(t.slice(0, -4) + "AAAA", { audience: "api.example.com", fetch: f })).reason, "bad signature");
   active = false; assert.match((await verifyAgentCredential(make(claims), { audience: "api.example.com", fetch: f })).reason, /turned agent credentials off/);
   assert.equal((await verifyAgentCredential(undefined, { audience: "x" })).valid, false);
+});
+
+// ---------------- v0.4.0: verify the delivery after paying ----------------
+const QUOTE_V2 = { x402Version: 2, resource: { url: "https://api.example.com/price", mimeType: "application/json" }, accepts: [],
+  extensions: { bazaar: { info: { input: { type: "http", method: "GET" }, output: { type: "json", example: { symbol: "ETH", price: 3120.5 } } } } } };
+const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { "content-type": "application/json" } });
+
+test("verifyDelivery: the listing's example decides, like PayCheck's own paid tests", async () => {
+  assert.deepEqual(expectedOutput(QUOTE_V2), { json: true, example: { symbol: "ETH", price: 3120.5 } });
+  const good = await verifyDelivery(json({ symbol: "ETH", price: 3001 }), { quote: QUOTE_V2 });
+  assert.equal(good.ok, true); assert.equal(good.checked, "example"); assert.equal(good.matchedListing, "yes");
+  assert.equal((await verifyDelivery(json({ data: { price: 1 } }), { quote: QUOTE_V2 })).ok, true, "inside a wrapper counts");
+  assert.equal((await verifyDelivery(json({ results: [] }), { quote: QUOTE_V2 })).ok, true, "an honest empty result list is fine");
+  const wrong = await verifyDelivery(json({ status: "ok", note: "try later" }), { quote: QUOTE_V2 });
+  assert.equal(wrong.ok, false); assert.match(wrong.problems[0], /none of the example's fields \(symbol, price\)/); assert.equal(wrong.matchedListing, "no");
+  assert.match((await verifyDelivery(json({ error: "quota" }), { quote: QUOTE_V2 })).problems[0], /only an error message/);
+  assert.match((await verifyDelivery(new Response("<html>oops</html>", { headers: { "content-type": "text/html" } }), { quote: QUOTE_V2 })).problems[0], /not valid JSON/);
+  assert.match((await verifyDelivery(json({ x: 1 }, 500), { quote: QUOTE_V2 })).problems[0], /HTTP 500 after payment/);
+  assert.match((await verifyDelivery(new Response("", { status: 200 }), { quote: QUOTE_V2 })).problems[0], /empty response/);
+  const res = json({ symbol: "ETH", price: 1 }); await verifyDelivery(res, { quote: QUOTE_V2 });
+  assert.equal((await res.json()).price, 1, "the caller can still read the body");
+});
+
+test("verifyDelivery: v1 outputSchema (a JSON Schema) and quotes with nothing to compare", async () => {
+  const v1 = { x402Version: 1, accepts: [{ mimeType: "application/json", outputSchema: { output: { type: "object", properties: { temp: { type: "number" } }, required: ["temp"] } } }] };
+  assert.equal((await verifyDelivery(json({ temp: 21.5 }), { quote: v1 })).checked, "schema");
+  assert.match((await verifyDelivery(json({ temp: "warm" }), { quote: v1 })).problems[0], /expected number, got string/);
+  const none = await verifyDelivery(new Response("hello"), { quote: { accepts: [] } });
+  assert.equal(none.ok, true); assert.equal(none.checked, "status"); assert.equal(none.matchedListing, "unsure");
+});
+
+test("wrapFetchWithPayCheck verifies every paid call, and reports it when asked", async () => {
+  const seen = [];
+  const paycheck = async (url, init) => { seen.push({ url, init }); return url.endsWith("/v1/report") ? json({ accepted: true, outcome: "problem", retestQueued: true }) : json({ allow: true, reasons: [] }); };
+  const paidHeaders = { "content-type": "application/json", "payment-response": Buffer.from(JSON.stringify({ transaction: "0xpaidtx" })).toString("base64") };
+  const fakeWrap = (f, c) => async () => { const r = await c.hooks[0]({ paymentRequired: QUOTE_V2, selectedRequirements: { amount: "1000", payTo: "0xabc", network: "eip155:8453" } });
+    if (r?.abort) throw new Error(r.reason); return new Response(JSON.stringify({ status: "busy" }), { headers: paidHeaders }); };
+  const client = new FakeClient(); const results = [];
+  const fetchWithPay = wrapFetchWithPayCheck(async () => new Response(""), client, fakeWrap, { fetch: paycheck, reportOutcomes: true, onDelivery: d => { results.push(d); } });
+  const res = await fetchWithPay("https://api.example.com/price");
+  assert.equal((await res.json()).status, "busy", "the response is returned untouched");
+  assert.equal(client.lastDelivery.ok, false); assert.equal(results[0].url, "https://api.example.com/price");
+  const rep = JSON.parse(seen.find(s => s.url.endsWith("/v1/report")).init.body);
+  assert.equal(rep.tx, "0xpaidtx"); assert.equal(rep.answers.matchedListing, "no"); assert.match(rep.problems[0], /none of the example's fields/);
+  assert.equal(results[0].report.retestQueued, true);
+  // Without reportOutcomes nothing is sent; a payment PayCheck blocks is never verified.
+  const seen2 = [], client2 = new FakeClient();
+  await wrapFetchWithPayCheck(async () => new Response(""), client2, fakeWrap, { fetch: async (u, i) => { seen2.push(u); return json({ allow: true, reasons: [] }); } })("https://api.example.com/price");
+  assert.equal(seen2.some(u => u.endsWith("/v1/report")), false); assert.equal(client2.lastDelivery.ok, false);
+  const client3 = new FakeClient();
+  await assert.rejects(wrapFetchWithPayCheck(async () => new Response(""), client3, fakeWrap, { fetch: async () => json({ allow: false, reasons: ["verdict is avoid"] }) })("https://api.example.com/price"));
+  assert.equal(client3.lastDelivery, undefined);
 });

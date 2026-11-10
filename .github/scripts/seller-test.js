@@ -7,10 +7,18 @@ const API = process.env.PAYCHECK_URL || "https://lumierepaycheck.org";
 const DOCS = "https://lumierepaycheck.org/docs/sellers#6-seller-funded-tests";
 
 const isSellerTest = (issue) => /^seller test/i.test(issue.title || "") || (issue.labels || []).some(l => (l.name || l) === "seller-test");
-function endpointFrom(body) {
-  const m = /###\s*Endpoint URL\s*\n+\s*(\S+)/i.exec(body || "");
-  const url = m ? m[1].trim() : null;
-  return url && /^https?:\/\//i.test(url) ? url : null;
+// The endpoint URL from the issue. The form puts it under "### Endpoint URL", but an issue written by hand may bold the
+// label, wrap the URL in backticks, <...> or a Markdown link, or only have it in the title ("Seller test: <url>").
+// Issue #39 (Nov 10) wrote it by hand and got "couldn't find an endpoint URL".
+const URL_RE = /https?:\/\/[^\s<>()`"'\]\[]+/i;
+const clean = (u) => u ? u.replace(/[.,;:!?*_]+$/, "") : null;
+function endpointFrom(body, title) {
+  const b = String(body || "");
+  const label = /(?:^|\n)\s*(?:#+\s*|\*\*|__)?\s*Endpoint URL\s*(?:\*\*|__)?\s*:?\s*([\s\S]{0,600})/i.exec(b);
+  const fromLabel = label && URL_RE.exec(label[1]);
+  if (fromLabel) return clean(fromLabel[0]);
+  const fromTitle = /seller test/i.test(title || "") && URL_RE.exec(String(title));
+  return fromTitle ? clean(fromTitle[0]) : null;    // never just the first URL in the text: it could be a docs link
 }
 const getJson = async (fetchImpl, path) => { const r = await fetchImpl(`${API}${path}`, { headers: { accept: "application/json" } }); return { status: r.status, body: await r.json().catch(() => ({})) }; };
 const hasLabel = (issue, name) => (issue.labels || []).some(l => (l.name || l) === name);
@@ -49,7 +57,7 @@ exports.onOpened = async ({ github, context, fetchImpl = fetch }) => {
   const say = (body) => github.rest.issues.createComment({ ...repo, issue_number: n, body });
   const close = () => github.rest.issues.update({ ...repo, issue_number: n, state: "closed", state_reason: "not_planned" });
   try { await github.rest.issues.addLabels({ ...repo, issue_number: n, labels: ["seller-test"] }); } catch { /* optional */ }
-  const url = endpointFrom(issue.body);
+  const url = endpointFrom(issue.body, issue.title);
   if (!url) { await say("Thanks! I couldn't find an endpoint URL in this issue. Please edit it to include the full URL (with the path) under **Endpoint URL**, then open a new seller test."); return "no url"; }
   let q;
   try { q = await getJson(fetchImpl, `/v1/seller-test/quote?url=${encodeURIComponent(url)}`); }

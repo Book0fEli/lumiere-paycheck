@@ -4,14 +4,10 @@
 const API = process.env.PAYCHECK_URL || "https://lumierepaycheck.org";
 const MAX_URLS = 5;
 
-// Issue forms render fields as "### Endpoint URL\n\n<value>". Sellers sometimes list several endpoints, separated by
-// commas, spaces or new lines: take each one (up to 5), without trailing punctuation.
-function endpointsFrom(body) {
-  const m = /###\s*Endpoint URL\s*\n+([\s\S]*?)(?:\n###|$)/i.exec(body || "");
-  if (!m) return [];
-  const found = (m[1].match(/https?:\/\/[^\s,;<>"'`)\]]+/gi) || []).map(u => u.replace(/[.,;:!?]+$/, ""));
-  return [...new Set(found)].slice(0, MAX_URLS);
-}
+// Endpoint URLs from the issue (up to 5): the form's "### Endpoint URL" field, other ways of writing it, or the
+// title. See issue-url.js.
+const { urlsFrom, pendingNoUrl } = require("./issue-url.js");
+const endpointsFrom = (body, title) => urlsFrom(body, title, MAX_URLS);
 
 // The "Re-test" column: queued, not needed (and why, in the text below), or already asked for today.
 function retestCell(j) {
@@ -27,7 +23,7 @@ module.exports = async ({ github, context, fetchImpl = fetch }) => {
   const isDispute = /^grade dispute/i.test(issue.title || "") || /###\s*Endpoint URL/i.test(issue.body || "");
   if (!isDispute) return "not a dispute";
   const say = (body) => github.rest.issues.createComment({ ...context.repo, issue_number: issue.number, body });
-  const urls = endpointsFrom(issue.body);
+  const urls = endpointsFrom(issue.body, issue.title);
   if (!urls.length) {
     await say("Thanks for the report! I couldn't find an endpoint URL in this issue. Please edit it to include the full URL (with the path) under **Endpoint URL**, and a re-test will be queued automatically.");
     return "no url";
@@ -121,7 +117,7 @@ function gradesBefore(text, urls) {
 
 async function followUp({ github, repo, issue, fetchImpl, now }) {
   const n = issue.number;
-  const urls = endpointsFrom(issue.body);
+  const urls = endpointsFrom(issue.body, issue.title);
   if (!urls.length) return "no url";
   const comments = await github.paginate(github.rest.issues.listComments, { ...repo, issue_number: n, per_page: 100 });
   const owner = repo.owner.toLowerCase();
@@ -201,6 +197,17 @@ async function followUp({ github, repo, issue, fetchImpl, now }) {
 
 module.exports.sweep = async ({ github, context, fetchImpl = fetch, now = Date.now() }) => {
   const repo = context.repo;
+  // Disputes the bot couldn't read (no URL found): if the author has since edited the issue or posted the URL in a
+  // comment, answer it now, as if it had just been opened.
+  const retried = [];
+  const unread = (await github.paginate(github.rest.issues.listForRepo, { ...repo, state: "open", per_page: 100 }))
+    .filter(i => !i.pull_request && /^grade dispute/i.test(i.title || "") && !hasLabel(i, "grade-dispute"));
+  for (const issue of unread.slice(0, 20)) {
+    try {
+      const p = await pendingNoUrl({ github, repo, issue });
+      if (p && endpointsFrom(p.body, issue.title).length) retried.push(`#${issue.number}: ${await module.exports({ github, context: { repo, payload: { issue: { ...issue, body: p.body } } }, fetchImpl })}`);
+    } catch (e) { retried.push(`#${issue.number}: retry error ${e?.message || e}`); }
+  }
   const issues = await github.paginate(github.rest.issues.listForRepo, { ...repo, state: "open", labels: "grade-dispute", per_page: 100 });
   const done = [];
   for (const issue of issues) {
@@ -208,6 +215,6 @@ module.exports.sweep = async ({ github, context, fetchImpl = fetch, now = Date.n
     try { done.push(`#${issue.number}: ${await followUp({ github, repo, issue, fetchImpl, now })}`); }
     catch (e) { done.push(`#${issue.number}: error ${e?.message || e}`); }
   }
-  return `${issues.length} open. ${done.join("; ")}`;
+  return `${issues.length} open. ${done.join("; ")}${retried.length ? ` | re-read: ${retried.join("; ")}` : ""}`;
 };
 module.exports.gradesBefore = gradesBefore;

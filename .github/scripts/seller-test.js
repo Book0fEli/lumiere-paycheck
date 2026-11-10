@@ -7,19 +7,9 @@ const API = process.env.PAYCHECK_URL || "https://lumierepaycheck.org";
 const DOCS = "https://lumierepaycheck.org/docs/sellers#6-seller-funded-tests";
 
 const isSellerTest = (issue) => /^seller test/i.test(issue.title || "") || (issue.labels || []).some(l => (l.name || l) === "seller-test");
-// The endpoint URL from the issue. The form puts it under "### Endpoint URL", but an issue written by hand may bold the
-// label, wrap the URL in backticks, <...> or a Markdown link, or only have it in the title ("Seller test: <url>").
-// Issue #39 (Nov 10) wrote it by hand and got "couldn't find an endpoint URL".
-const URL_RE = /https?:\/\/[^\s<>()`"'\]\[]+/i;
-const clean = (u) => u ? u.replace(/[.,;:!?*_]+$/, "") : null;
-function endpointFrom(body, title) {
-  const b = String(body || "");
-  const label = /(?:^|\n)\s*(?:#+\s*|\*\*|__)?\s*Endpoint URL\s*(?:\*\*|__)?\s*:?\s*([\s\S]{0,600})/i.exec(b);
-  const fromLabel = label && URL_RE.exec(label[1]);
-  if (fromLabel) return clean(fromLabel[0]);
-  const fromTitle = /seller test/i.test(title || "") && URL_RE.exec(String(title));
-  return fromTitle ? clean(fromTitle[0]) : null;    // never just the first URL in the text: it could be a docs link
-}
+// The endpoint URL from the issue: the form's field, other ways of writing it, or the title (issue-url.js).
+const { urlsFrom, pendingNoUrl } = require("./issue-url.js");
+const endpointFrom = (body, title) => urlsFrom(body, title, 1)[0] || null;
 const getJson = async (fetchImpl, path) => { const r = await fetchImpl(`${API}${path}`, { headers: { accept: "application/json" } }); return { status: r.status, body: await r.json().catch(() => ({})) }; };
 const hasLabel = (issue, name) => (issue.labels || []).some(l => (l.name || l) === name);
 
@@ -128,6 +118,13 @@ exports.sweep = async ({ github, context, fetchImpl = fetch }) => {
     let tests;
     try { tests = (await getJson(fetchImpl, `/v1/seller-tests?issue=${n}`)).body?.tests || []; } catch { continue; }
     const t = tests[tests.length - 1];
+    if (!t && !hasLabel(issue, "seller-test:funded")) {
+      // The bot couldn't read the URL: if the author has since edited the issue or posted it in a comment, start over.
+      try {
+        const p = await pendingNoUrl({ github, repo, issue });
+        if (p && endpointFrom(p.body, issue.title)) { await exports.onOpened({ github, context: { repo, payload: { issue: { ...issue, body: p.body } } }, fetchImpl }); updated++; continue; }
+      } catch { /* try again next sweep */ }
+    }
     if (!t) {
       if (Date.now() - Date.parse(issue.created_at) > 7 * 86400_000) {
         await say("No payment arrived within 7 days, so I'm closing this. Open a new seller test whenever you're ready.\n\n_This reply was generated automatically._");

@@ -9,7 +9,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 
 const API = (process.env.LUMIERE_PAYCHECK_URL || "https://lumierepaycheck.org").replace(/\/+$/, "");
-const VERSION = "1.2.2";
+const VERSION = "1.3.0";
 const D = {
   "check_endpoint": "Get the trust verdict for one x402 endpoint: score (0-100), grade (A-F), and verdict (proceed, caution, avoid, free, or insufficient_data), plus uptime, delivery-test status, payout-wallet incidents, and how many independent buyers stand behind the seller's buyer wallets (we count customers, not wallets). Use it when you're deciding whether an endpoint is trustworthy at all, before you have a price quote. When you already have the 402 quote (amount and payTo) and are about to pay, use check_payment instead: it runs this same check and also verifies the price and wallet. To discover good endpoints rather than check a known one, use top_endpoints. Read-only and free; reflects monitoring every 30 minutes and real test payments, so a brand-new endpoint may return insufficient_data. Endpoints not in the catalog return monitored: false and are checked automatically: if one answers a valid x402 payment quote it joins the catalog within about 10 minutes (see intake). A retest field appears while a failed paid test awaits its re-test (the grade changes only if that fails too). API docs: https://github.com/Book0fEli/lumiere-paycheck/blob/main/docs/api.md",
   "check_payment": "Decide whether a specific x402 payment should go through: returns allow true/false with reasons. Checks the endpoint's trust verdict, that the amount is within your cap and not above the monitored price, and that the payTo wallet matches the one we've observed (catches swapped or hijacked wallets). Optionally (minOrganicShare) it also requires that enough of the seller's volume comes from independent buyers. Intended for right before a payment, with the amount, payTo, and network from the endpoint's 402 quote; allow is true only when every rule passes. Use check_endpoint instead if you only want an endpoint's grade without a quote in hand. Read-only and free; it doesn't make or block the payment itself. When allow is false, the reasons list explains why. pauseDuringRetest: true also holds payments while a failed paid test awaits its re-test. API docs: https://github.com/Book0fEli/lumiere-paycheck/blob/main/docs/api.md",
@@ -17,8 +17,9 @@ const D = {
   "top_endpoints": "List the x402 endpoints that are currently safest to pay (verdict proceed or caution, no payout-wallet incidents), best first, with score, grade, verdict, and whether a real test payment was delivered. Use it to discover reliable endpoints or pick between providers. To evaluate one specific endpoint use check_endpoint; to approve a payment use check_payment. Read-only and free; rankings update as monitoring runs (every 30 minutes).",
   "catalog_stats": "Get an overview of the whole monitored x402 catalog: how many endpoints are monitored, how many fall into each verdict (proceed, caution, avoid, free, insufficient_data), and when scores were last computed. Use it for context or reporting, for example to tell a user how much of the x402 ecosystem passes checks. It says nothing about any single endpoint: use check_endpoint for one endpoint, top_endpoints for a ranked list, or check_payment before paying. Read-only, free, no parameters.",
   "list_sellers": "List the sellers behind the monitored x402 endpoints, grouped by domain, with each seller's endpoint count, verdict mix (proceed, caution, avoid, free, insufficient_data, bulk_listing), passing and paid-tested counts, and best grade. Use it to find which providers have trustworthy endpoints, search a provider by domain, or see who has endpoints to avoid. Open one seller's endpoints with seller_endpoints; for a single endpoint use check_endpoint. Read-only and free; the same data as lumierepaycheck.org/sellers, refreshed every few minutes.",
-  "seller_endpoints": "List one seller's monitored x402 endpoints with each one's grade, score, verdict, 7-day uptime, median response time, whether a real test payment was delivered, and how many checks it's based on, plus the seller's counts per verdict. Use it after list_sellers to pick the best endpoint from a provider, or to see which of a seller's endpoints to avoid. For the full reasons behind one endpoint's grade use check_endpoint. Read-only and free; 50 endpoints per page at most.",
+  "seller_endpoints": "List one seller's monitored x402 endpoints with each one's grade, score, verdict, 7-day uptime, median response time, whether a real test payment was delivered, and how many checks it's based on, plus the seller's counts per verdict and its refund record (how many of our failed paid calls it refunded in the last 30 days). Use it after list_sellers to pick the best endpoint from a provider, or to see which of a seller's endpoints to avoid. For the full reasons behind one endpoint's grade use check_endpoint. Read-only and free; 50 endpoints per page at most.",
   "paid_test_receipts": "Get the signed receipts for our real test payments to one x402 endpoint: the exact payment terms we paid and the response we got (as SHA-256 hashes), amount quoted and paid, payout wallet, HTTP status, result and time, signed with our published Ed25519 key. Use it when a user or agent wants evidence behind a grade instead of the grade alone; check_endpoint gives the grade itself. The tester wallet and transaction appear only after that test wallet is retired (until then a hash commits to them). Read-only and free; receipts exist for tests since Nov 7, 2026.",
+  "reliability_report": "Get the live x402 reliability numbers from our own paid tests over the last 30 days: how many endpoints delivered once paid, how often payments didn't go through, how many bad calls still charged the buyer and how many were refunded, why paid calls fail, what calls cost, and the sellers that refund failed calls. Includes the same numbers from about 30 days earlier when available. Use it to answer questions about x402 reliability as a whole or which sellers refund; for one endpoint use check_endpoint, for one seller seller_endpoints. Read-only and free; recomputed every 6 hours. The same data is at lumierepaycheck.org/reliability.",
   "get_full_report": "Get instructions for buying the detailed paid report on one x402 endpoint (score breakdown, current price quote, wallet and price history, test-payment results). Returns the report URL, price, and network; it doesn't buy the report itself. The report is an x402 endpoint that your agent pays with any x402 client. Use it only when the free check_endpoint result isn't enough and the user wants the full history. The response also lists the other paid x402 checks (wallet risk, batch grades, watch alerts), paid the same way. Endpoints we don't monitor return 404 on the report URL and are never charged. API docs: https://github.com/Book0fEli/lumiere-paycheck/blob/main/docs/api.md"
 };
 
@@ -45,7 +46,7 @@ const page = (url) => `${API}/e?url=${encodeURIComponent(url)}`;
 const ro = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true };
 
 const server = new McpServer({ name: "lumiere-paycheck", title: "Lumière PayCheck", version: VERSION, websiteUrl: "https://lumierepaycheck.org" }, {
-  instructions: "Lumière PayCheck checks x402 endpoints before an agent pays them. Call check_endpoint for a trust verdict, or check_payment with the amount and payTo from the 402 quote before paying; check_payment returns allow true only when every rule passes. After paying, report_outcome records whether you got what you paid for (with a receipt, or the payment tx). To browse providers use list_sellers and seller_endpoints; for the evidence behind a grade, paid_test_receipts. Free to use.",
+  instructions: "Lumière PayCheck checks x402 endpoints before an agent pays them. Call check_endpoint for a trust verdict, or check_payment with the amount and payTo from the 402 quote before paying; check_payment returns allow true only when every rule passes. After paying, report_outcome records whether you got what you paid for (with a receipt, or the payment tx). To browse providers use list_sellers and seller_endpoints; for the evidence behind a grade, paid_test_receipts; for x402 reliability as a whole and which sellers refund failed calls, reliability_report. Free to use.",
 });
 
 server.registerTool("check_endpoint", {
@@ -211,6 +212,25 @@ server.registerTool("paid_test_receipts", {
   return out(r.status === 200 ? { monitored: true, ...r.data } : r.data, r.status !== 200);
 });
 
+server.registerTool("reliability_report", {
+  title: "x402 reliability report",
+  description: D.reliability_report,
+  inputSchema: { refunders: z.number().int().min(0).max(50).optional().describe("How many sellers that refund to list, most refunds first (default 10)") },
+  annotations: { ...ro, title: "x402 reliability report" },
+}, async ({ refunders }) => {
+  const r = await call("GET", "/v1/stats/report");
+  if (r.status === 503) return out({ ready: false, error: "The first report is being computed; try again in a few minutes." });
+  if (r.status !== 200) return out(r.data, true);
+  const d = r.data, hist = d.history ?? [];
+  const cut = new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10);
+  const then = [...hist].reverse().find(h => h.day <= cut) ?? null;
+  return out({ ready: true, generatedAt: d.generatedAt, windowDays: d.windowDays, attempts: d.attempts, endpoints: d.endpoints, sellers: d.sellers,
+    settled: d.settled, paidUsd: d.paidUsd, deliveredPct: d.latestGraded?.deliveredPct ?? null, paymentFailedPct: d.paymentFailedPct, badCalls: d.badCalls,
+    badReasons: d.badReasons, sellersThatRefund: (d.refunders ?? []).slice(0, refunders ?? 10),
+    thirtyDaysAgo: then ? { day: then.day, deliveredPct: then.deliveredPct, paymentFailedPct: then.paymentFailedPct, chargedPct: then.chargedPct, refundedPct: then.refundedPct } : null,
+    page: `${API}/reliability`, data: `${API}/v1/stats/report` });
+});
+
 server.registerTool("get_full_report", {
   title: "How to get a full trust report",
   description: D.get_full_report,
@@ -274,6 +294,7 @@ Checks x402 endpoints before an AI agent pays them.
 - **list_sellers**: the sellers behind the catalog, by domain, with their verdict mix and best grade. Search, filter by verdict, sort.
 - **seller_endpoints**: one seller's endpoints with grade, uptime and whether a paid test delivered.
 - **paid_test_receipts**: signed receipts for our test payments to one endpoint (terms and response hashes, amount, result, time), checkable with our public key.
+- **reliability_report**: live x402 reliability from our paid tests (delivered rate, bad calls still charged, refunds) and the sellers that refund failed calls.
 - **get_full_report**: how to buy the detailed report (paid via x402).
 - **report_outcome**: after paying, report how it went (receipt, or url + payment tx; short answers). Confirmations move the endpoint up our paid-test queue; only our own test changes grades.
 

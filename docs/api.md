@@ -490,6 +490,7 @@ Same tools at `https://lumierepaycheck.org/mcp?plans=1`, whose instructions also
 | `list_sellers` | Sellers by domain with their verdict mix, passing and paid-tested counts and best grade (same as `/v1/sellers`) |
 | `seller_endpoints` | One seller's endpoints with grade, uptime and whether a paid test delivered (same as `/v1/sellers/<domain>`) |
 | `paid_test_receipts` | Signed receipts for our paid tests of one endpoint (same as `/v1/test-receipts`) |
+| `reliability_report` | Live x402 reliability from our paid tests and the sellers that refund failed calls (same as `/v1/stats/report`) |
 | `get_full_report` | How to buy the full report |
 | `report_outcome` | After paying, report how it went (receipt, or url + payment tx; short answers) |
 

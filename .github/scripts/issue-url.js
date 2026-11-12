@@ -14,7 +14,24 @@ function urlsFrom(body, title, max = 5) {
   const found = [];
   for (let m; (m = re.exec(b)) && found.length < max;) for (const u of (m[1].match(URL_G) || [])) found.push(clean(u));
   if (!found.length && /^(seller test|grade dispute)/i.test(String(title || ""))) for (const u of (String(title).match(URL_G) || [])) found.push(clean(u));
+  if (!found.length) found.push(...unlabeled(b, title));
   return [...new Set(found)].slice(0, max);
+}
+
+// No "Endpoint URL" label anywhere (Nov 11, #44: the label was missing, and the title named only the host).
+// 1) The title names a host ("Grade dispute: api.example.com"): URLs in the text on that host.
+// 2) Otherwise, if the text has exactly one URL that isn't ours, GitHub's or a docs/explorer link, that one.
+const NOT_ENDPOINTS = /(^|\.)(lumierepaycheck\.org|github\.com|githubusercontent\.com|x402\.org|basescan\.org|solscan\.io|etherscan\.io|docs\.cdp\.coinbase\.com|coinbase\.com|x402scan\.com|x402-list\.com|npmjs\.com)$/i;
+function unlabeled(body, title) {
+  const all = [...new Set((String(body || "").match(URL_G) || []).map(clean))];
+  const host = (u) => { try { return new URL(u).hostname.toLowerCase(); } catch { return ""; } };
+  const named = /^(?:seller test|grade dispute)\s*:?\s*([a-z0-9.-]+\.[a-z]{2,})\b/i.exec(String(title || ""));
+  if (named) {
+    const onHost = all.filter(u => host(u) === named[1].toLowerCase() && new URL(u).pathname.length > 1 && !/\/\.well-known\//.test(u));
+    if (onHost.length) return onHost;
+  }
+  const candidates = all.filter(u => { const h = host(u); return h && !NOT_ENDPOINTS.test(h) && !/\.well-known\//.test(u); });
+  return candidates.length === 1 ? candidates : [];
 }
 
 const NO_URL = /couldn't find an endpoint URL/i;
@@ -30,4 +47,7 @@ async function pendingNoUrl({ github, repo, issue }) {
   return { body: [issue.body || "", ...later.map(t => /Endpoint URL/i.test(t) ? t : `### Endpoint URL\n\n${t}`)].join("\n\n"), since: last.created_at };
 }
 
-module.exports = { urlsFrom, pendingNoUrl, NO_URL };
+// The "couldn't find" reply: says how to fix it, and that an edit or a comment is picked up within minutes.
+const noUrlMessage = (kind) => `Thanks${kind === "seller test" ? "" : " for the report"}! I couldn't find an endpoint URL in this issue. Reply with the full URL (with the path), or edit the issue to put it under **Endpoint URL**, and I'll pick it up within a few minutes.`;
+
+module.exports = { urlsFrom, pendingNoUrl, NO_URL, noUrlMessage };

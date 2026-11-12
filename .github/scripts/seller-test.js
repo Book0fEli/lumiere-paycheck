@@ -8,7 +8,7 @@ const DOCS = "https://lumierepaycheck.org/docs/sellers#6-seller-funded-tests";
 
 const isSellerTest = (issue) => /^seller test/i.test(issue.title || "") || (issue.labels || []).some(l => (l.name || l) === "seller-test");
 // The endpoint URL from the issue: the form's field, other ways of writing it, or the title (issue-url.js).
-const { urlsFrom, pendingNoUrl } = require("./issue-url.js");
+const { urlsFrom, pendingNoUrl, noUrlMessage } = require("./issue-url.js");
 const endpointFrom = (body, title) => urlsFrom(body, title, 1)[0] || null;
 const getJson = async (fetchImpl, path) => { const r = await fetchImpl(`${API}${path}`, { headers: { accept: "application/json" } }); return { status: r.status, body: await r.json().catch(() => ({})) }; };
 const hasLabel = (issue, name) => (issue.labels || []).some(l => (l.name || l) === name);
@@ -48,7 +48,7 @@ exports.onOpened = async ({ github, context, fetchImpl = fetch }) => {
   const close = () => github.rest.issues.update({ ...repo, issue_number: n, state: "closed", state_reason: "not_planned" });
   try { await github.rest.issues.addLabels({ ...repo, issue_number: n, labels: ["seller-test"] }); } catch { /* optional */ }
   const url = endpointFrom(issue.body, issue.title);
-  if (!url) { await say("Thanks! I couldn't find an endpoint URL in this issue. Please edit it to include the full URL (with the path) under **Endpoint URL**, then open a new seller test."); return "no url"; }
+  if (!url) { await say(noUrlMessage("seller test")); return "no url"; }
   let q;
   try { q = await getJson(fetchImpl, `/v1/seller-test/quote?url=${encodeURIComponent(url)}`); }
   catch { await say("Thanks! The automatic check couldn't reach Lumière PayCheck just now. Please try again in a few minutes by opening a new seller test."); return "api unreachable"; }
@@ -64,7 +64,9 @@ exports.onOpened = async ({ github, context, fetchImpl = fetch }) => {
     return `not eligible: ${why.split(":")[0]}`;
   }
   await say([
-    `Thanks for verifying \`${url}\`. It costs more than our tester pays on its own, so here's how to fund one paid test of it.`,
+    b.why === "paused"
+      ? `Thanks for verifying \`${url}\`. Free paid tests are paused right now, so here's how to fund one paid test of it yourself.`
+      : `Thanks for verifying \`${url}\`. It costs more than our tester pays on its own, so here's how to fund one paid test of it.`,
     "",
     payInstructions(b, n),
     "",
@@ -104,6 +106,18 @@ function resultComment(t, score) {
   lines.push(`Endpoint page (with the full test history): ${t.page}`, "", "_This reply was generated automatically._");
   return lines.join("\n");
 }
+
+// v1.79.3: an edit, or a comment from the issue's author, right away instead of on the 15-minute sweep: if the bot
+// couldn't read the URL before and it's there now, start over as if the issue had just been opened.
+exports.onUpdate = async ({ github, context, fetchImpl = fetch }) => {
+  const issue = context.payload.issue, repo = context.repo;
+  if (!issue || issue.pull_request || issue.state !== "open" || !isSellerTest(issue) || hasLabel(issue, "seller-test:funded")) return "skipped";
+  const c = context.payload.comment;
+  if (c && (!c.user || c.user.login !== (issue.user && issue.user.login))) return "comment from someone else";
+  const p = await pendingNoUrl({ github, repo, issue });
+  if (!p || !endpointFrom(p.body, issue.title)) return "nothing new";
+  return exports.onOpened({ github, context: { repo, payload: { issue: { ...issue, body: p.body } } }, fetchImpl });
+};
 
 exports.sweep = async ({ github, context, fetchImpl = fetch }) => {
   const repo = context.repo;

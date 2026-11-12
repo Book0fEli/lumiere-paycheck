@@ -6,11 +6,12 @@ const MAX_URLS = 5;
 
 // Endpoint URLs from the issue (up to 5): the form's "### Endpoint URL" field, other ways of writing it, or the
 // title. See issue-url.js.
-const { urlsFrom, pendingNoUrl } = require("./issue-url.js");
+const { urlsFrom, pendingNoUrl, noUrlMessage } = require("./issue-url.js");
 const endpointsFrom = (body, title) => urlsFrom(body, title, MAX_URLS);
 
 // The "Re-test" column: queued, not needed (and why, in the text below), or already asked for today.
 function retestCell(j) {
+  if (j.paused) return j.queued ? "⏸ queued (paid tests paused)" : "⏸ waiting (paid tests paused)";
   if (j.queued) return "✅ queued";
   if (j.retestNeeded === false) return ({ uptime: "not needed: uptime, clears on its own", passing: "not needed: already passing", wallet: "not needed: wallet change", withdrawn: "not needed: withdrawn", strikes: "automatic, less often while failing (or fund one)" })[j.why] || "not needed (see below)";
   return "already requested in the last 24h";
@@ -25,7 +26,7 @@ module.exports = async ({ github, context, fetchImpl = fetch }) => {
   const say = (body) => github.rest.issues.createComment({ ...context.repo, issue_number: issue.number, body });
   const urls = endpointsFrom(issue.body, issue.title);
   if (!urls.length) {
-    await say("Thanks for the report! I couldn't find an endpoint URL in this issue. Please edit it to include the full URL (with the path) under **Endpoint URL**, and a re-test will be queued automatically.");
+    await say(noUrlMessage("dispute"));
     return "no url";
   }
 
@@ -58,8 +59,19 @@ module.exports = async ({ github, context, fetchImpl = fetch }) => {
     ...monitored.map(({ url, j }) => `| [${url.replace(/^https?:\/\//, "")}](${j.page || `${API}/e?url=${encodeURIComponent(url)}`}) | **${j.grade ?? "?"}** | ${j.score ?? "—"} | ${j.verdict ?? "—"} | ${j.uptimePct ?? "—"}% | ${j.delivery ?? "—"} | ${retestCell(j)} |`),
     "",
   ];
-  const anyQueued = monitored.some(x => x.j.queued);
+  const paused = monitored.filter(x => x.j.paused);
+  const anyQueued = monitored.some(x => x.j.queued && !x.j.paused);
   const notNeeded = monitored.filter(x => x.j.retestNeeded === false);
+  // v1.79.3: free paid re-tests paused (PayCheck says so): don't promise a result in hours; offer the funded test.
+  if (paused.length) {
+    lines.push("**Free paid re-tests are paused right now.** Your request stays queued and runs when they resume; waiting never affects the grade.", "");
+    const fundable = paused.filter(x => x.j.fundUrl);
+    if (fundable.length) {
+      lines.push("**Want a result sooner?** Fund a test of your own endpoint at its own price, with any x402 client (USDC on Base). Our tester pays your endpoint with it, so the money goes back to your payout wallet, and the result is posted here:", "");
+      for (const { url, j } of fundable) lines.push(`- ${one ? "" : `\`${short(url)}\`: `}${j.fundPrice ? `**${j.fundPrice}**: ` : ""}\`POST ${j.fundUrl}&issue=${issue.number}\``);
+      lines.push("", `Or use **Verify your endpoint** on the endpoint's page. Details: [Seller-funded tests](${API}/docs/sellers#6-seller-funded-tests).`, "");
+    }
+  }
   if (anyQueued) lines.push("Results usually appear within a few hours. Each endpoint's page shows its **Recent paid tests** (what came back, whether money was taken, and whether it counted) and its free checks with UTC timestamps.");
   // No paid re-test when it can't change the grade (old downtime, a wallet change, already passing): say why, plainly.
   if (notNeeded.length) {
@@ -74,13 +86,13 @@ module.exports = async ({ github, context, fetchImpl = fetch }) => {
   lines.push(
     "",
     "Checks where our monitor was rate-limited, blocked by a firewall, or couldn't read the payment network never count against an endpoint, and a failed paid check only counts if a re-test about two hours later fails too. " +
-      (anyQueued ? "If something still looks wrong after the re-test, reply here with timestamps from your own logs." : "If you think a check was counted by mistake, reply here with timestamps from your own logs and the maintainer will look."),
+      (anyQueued || paused.length ? "If something still looks wrong after the re-test, reply here with timestamps from your own logs." : "If you think a check was counted by mistake, reply here with timestamps from your own logs and the maintainer will look."),
     "",
     "_This reply was generated automatically._",
   );
   await say(lines.join("\n"));
   try { await github.rest.issues.addLabels({ ...context.repo, issue_number: issue.number, labels: ["grade-dispute"] }); } catch { /* label optional */ }
-  return anyQueued ? "queued" : notNeeded.length ? "not needed" : "already queued";
+  return paused.length ? "queued (paused)" : anyQueued ? "queued" : notNeeded.length ? "not needed" : "already queued";
 };
 
 module.exports.endpointsFrom = endpointsFrom;
@@ -218,3 +230,17 @@ module.exports.sweep = async ({ github, context, fetchImpl = fetch, now = Date.n
   return `${issues.length} open. ${done.join("; ")}${retried.length ? ` | re-read: ${retried.join("; ")}` : ""}`;
 };
 module.exports.gradesBefore = gradesBefore;
+
+// v1.79.3: an edit to a dispute, or a comment from its author, right away (not on the 30-minute sweep): if the bot's
+// last reply was "couldn't find an endpoint URL" and the URL is there now, answer as if the issue had just been opened.
+// Nov 11 (#44): the author added the URL as a comment, heard nothing for minutes, and closed the issue.
+module.exports.onUpdate = async ({ github, context, fetchImpl = fetch }) => {
+  const issue = context.payload.issue, repo = context.repo;
+  if (!issue || issue.pull_request || issue.state !== "open") return "skipped";
+  if (!/^grade dispute/i.test(issue.title || "") || hasLabel(issue, "grade-dispute")) return "not an unread dispute";
+  const c = context.payload.comment;
+  if (c && (!c.user || c.user.login !== (issue.user && issue.user.login))) return "comment from someone else";
+  const p = await pendingNoUrl({ github, repo, issue });
+  if (!p || !endpointsFrom(p.body, issue.title).length) return "nothing new";
+  return module.exports({ github, context: { repo, payload: { issue: { ...issue, body: p.body } } }, fetchImpl });
+};

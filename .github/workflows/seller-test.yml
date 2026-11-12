@@ -1,7 +1,10 @@
 name: Seller-funded tests
 on:
   issues:
-    types: [opened]
+    types: [opened, edited]
+  # v1.79.3: an edit or the author's comment is answered within a minute, not on the next sweep (#44, Nov 11).
+  issue_comment:
+    types: [created]
   schedule:
     - cron: "*/15 * * * *"
   workflow_dispatch:
@@ -13,6 +16,11 @@ concurrency:
   cancel-in-progress: false
 jobs:
   bot:
+    # Edits and comments only matter on this bot's own issues, and never the bot's own comments.
+    if: >-
+      github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event.action == 'opened' ||
+      (startsWith(github.event.issue.title, 'Seller test') && github.event.issue.pull_request == null &&
+       (github.event_name != 'issue_comment' || github.event.comment.user.type != 'Bot'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,5 +28,7 @@ jobs:
         with:
           script: |
             const bot = require('./.github/scripts/seller-test.js');
-            const result = context.eventName === 'issues' ? await bot.onOpened({ github, context }) : await bot.sweep({ github, context });
+            const result = context.eventName === 'issues' && context.payload.action === 'opened' ? await bot.onOpened({ github, context })
+              : context.eventName === 'issues' || context.eventName === 'issue_comment' ? await bot.onUpdate({ github, context })
+              : await bot.sweep({ github, context });
             core.info(`seller test: ${result}`);
